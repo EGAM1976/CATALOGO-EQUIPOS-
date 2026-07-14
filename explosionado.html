@@ -79,6 +79,18 @@
   .corner.bl{bottom:12px;left:12px;border-right:0;border-top:0}
   .corner.br{bottom:12px;right:12px;border-left:0;border-top:0}
 
+  /* ---- 2D (PDF) view ---- */
+  #view3d{position:absolute;inset:0}
+  #view2d{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab}
+  #view2d.grabbing{cursor:grabbing}
+  #pan2d{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+  #pg2d{display:block;user-select:none;-webkit-user-drag:none;background:#fff;box-shadow:0 10px 50px rgba(0,0,0,.28)}
+  #ov2d{position:absolute;left:0;top:0;pointer-events:none}
+  #ov2d .balloon{pointer-events:auto;cursor:pointer}
+  .zoomgrp{display:none}
+  .zoomgrp .lab{font-size:11.5px;color:var(--muted);font-family:"JetBrains Mono";min-width:74px;text-align:center}
+  .zoomgrp .zbtn{padding:6px 11px;font-size:15px;line-height:1}
+
   #empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
   .drop{max-width:460px;text-align:center;background:rgba(255,255,255,.72);backdrop-filter:blur(4px);border:2px dashed #a9b4c0;border-radius:18px;padding:30px 26px;color:#33414f;transition:.15s}
   .drop.hot{border-color:var(--accent);background:rgba(255,246,232,.9)}
@@ -144,8 +156,10 @@
 
     <div class="tools">
       <button class="btn primary editor-only" id="btnOpen">＋ Cargar STP</button>
+      <button class="btn primary editor-only" id="btnOpenPDF" title="Cargar un PDF y marcar globos sobre el despiece 2D">＋ Cargar PDF</button>
       <button class="btn ghost editor-only" id="btnOpenProj" title="Abrir un proyecto .json para seguir editándolo">Abrir proyecto</button>
       <input type="file" id="file" accept=".stp,.step,.STP,.STEP" class="hidden" />
+      <input type="file" id="filePdf" accept=".pdf,application/pdf" class="hidden" />
       <input type="file" id="fileProj" accept=".json,.explo,application/json" class="hidden" />
 
       <div class="group">
@@ -163,6 +177,17 @@
 
       <button class="btn ghost" id="btnTags" title="Mostrar/ocultar IDs">Ocultar IDs</button>
       <button class="btn ghost" id="btnOutline" title="Contornos técnicos">Contornos ✓</button>
+
+      <div class="group zoomgrp" id="zoomgrp">
+        <button class="btn ghost zbtn editor-only" id="pgPrev" title="Página anterior">‹</button>
+        <span class="lab" id="pgLabel">Pág 1/1</span>
+        <button class="btn ghost zbtn editor-only" id="pgNext" title="Página siguiente">›</button>
+        <span style="width:1px;height:18px;background:var(--line)"></span>
+        <button class="btn ghost zbtn" id="zoomOut" title="Alejar">−</button>
+        <button class="btn ghost zbtn" id="zoomIn" title="Acercar">+</button>
+        <button class="btn ghost editor-only" id="btnAuto" title="Rellenar leyenda desde la tabla del PDF">Auto-leyenda</button>
+      </div>
+
       <button class="btn ghost" id="btnFit" title="Encuadrar">Encuadrar</button>
       <button class="btn pub editor-only" id="btnPublish" title="Genera el archivo del proyecto para compartir">⇧ Publicar proyecto</button>
     </div>
@@ -170,24 +195,30 @@
 
   <main>
     <section id="stage">
-      <canvas id="cv"></canvas>
-      <svg id="overlay" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 L2.6,4.5 Z" fill="#ff9e2c"></path></marker>
-          <marker id="arwSel" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#2f6fb0"></path></marker>
-        </defs>
-        <g id="leaders"></g>
-      </svg>
+      <div id="view3d">
+        <canvas id="cv"></canvas>
+        <svg id="overlay" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 L2.6,4.5 Z" fill="#ff9e2c"></path></marker>
+            <marker id="arwSel" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 L3,5 Z" fill="#2f6fb0"></path></marker>
+          </defs>
+          <g id="leaders"></g>
+        </svg>
+      </div>
+      <div id="view2d" class="hidden">
+        <div id="pan2d"><img id="pg2d" alt="" /><svg id="ov2d" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      </div>
       <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
       <div class="sheetnote mono" id="sheetnote">— sin archivo —</div>
       <button class="btn sheetToggle" id="sheetToggle">Lista ▾</button>
 
       <div id="empty">
         <div class="drop" id="drop">
-          <h2 class="disp" id="dropTitle">Suelta tu archivo STP aquí</h2>
-          <p id="dropText">Se despieza el ensamble en su vista explosionada. Cada pieza recibe un <b>ID único</b> con flecha, y al costado editas su descripción. Cuando termines, pulsa <b>Publicar proyecto</b> para compartirlo en solo lectura.</p>
+          <h2 class="disp" id="dropTitle">Suelta tu archivo STP o PDF aquí</h2>
+          <p id="dropText">Dos formas de despiezar: un <b>STP</b> genera la vista 3D explosionada, o un <b>PDF</b> de catálogo se convierte en despiece 2D con globos numerados. En ambos, cada pieza lleva su <b>ID</b> y su descripción en la leyenda. Al terminar, <b>Publicar proyecto</b> para compartir en solo lectura.</p>
           <div class="row2" id="dropBtns">
-            <button class="btn primary" id="btnOpen2">Elegir archivo .stp</button>
+            <button class="btn primary" id="btnOpen2">Archivo .stp (3D)</button>
+            <button class="btn primary" id="btnOpenPDF2">Archivo .pdf (2D)</button>
             <button class="btn ghost" id="btnOpenProj2">Abrir proyecto .json</button>
           </div>
           <div class="mini">¿Solo curioseando? <a href="#" id="demo" style="color:#b5651d;font-weight:600">Cargar ejemplo de demostración</a></div>
@@ -226,12 +257,32 @@
   const stage=$("#stage"),cv=$("#cv"),overlay=$("#overlay"),leaders=$("#leaders");
   const listEl=$("#list"),countEl=$("#count"),filterEl=$("#filter");
   const emptyEl=$("#empty"),busyEl=$("#busy"),busyTxt=$("#busyTxt"),sheetnote=$("#sheetnote");
-  const fileInput=$("#file"),fileProj=$("#fileProj"),explode=$("#explode"),explodeVal=$("#explodeVal");
+  const fileInput=$("#file"),fileProj=$("#fileProj"),filePdf=$("#filePdf"),explode=$("#explode"),explodeVal=$("#explodeVal");
+  const view3d=$("#view3d"),view2d=$("#view2d"),pan2d=$("#pan2d"),pg2d=$("#pg2d"),ov2d=$("#ov2d"),zoomgrp=$("#zoomgrp");
+
+  const PDFJS_SRC="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js";
+  const PDFJS_WORKER="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
 
   // ---------- mode ----------
   const params=new URLSearchParams(location.search);
   const projUrl=params.get("proyecto")||params.get("p")||params.get("proj");
   let readOnly=!!projUrl || params.get("ro")==="1";
+  let appMode="3d";
+  // 2D state
+  let img2={w:0,h:0,src:""},markers=[],sel2=null,pdfDoc=null,pdfPage=1,pdfPages=1,pdfText=null;
+  let zoom=1,panx=0,pany=0;
+
+  function setMode(m){
+    appMode=m;
+    view3d.classList.toggle("hidden",m!=="3d");
+    view2d.classList.toggle("hidden",m!=="2d");
+    const g3=$("#explode").closest(".group");
+    g3.style.display=(m==="3d")?"":"none";
+    $("#views").style.display=(m==="3d")?"":"none";
+    $("#btnTags").style.display=(m==="3d")?"":"none";
+    $("#btnOutline").style.display=(m==="3d")?"":"none";
+    zoomgrp.style.display=(m==="2d")?"flex":"none";
+  }
 
   let renderer,scene,camera,controls,root;
   let raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
@@ -262,8 +313,9 @@
     overlay.setAttribute("viewBox",`0 0 ${w} ${h}`);overlay.setAttribute("width",w);overlay.setAttribute("height",h);
     const asp=w/Math.max(1,h),cur=camera.top;
     camera.left=-cur*asp;camera.right=cur*asp;camera.updateProjectionMatrix();
+    if(appMode==="2d"&&img2.w)applyPan2D();
   }
-  function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);if(parts.length)updateOverlay();}
+  function animate(){requestAnimationFrame(animate);if(appMode==="3d"){controls.update();renderer.render(scene,camera);if(parts.length)updateOverlay();}}
 
   // ---------- occt (lazy, editor only) ----------
   let occtPromise=null,occtLoaded=null;
@@ -337,6 +389,7 @@
     sheetnote.textContent=currentName.toUpperCase()+"  ·  "+parts.length+" PZA"+(readOnly?"  ·  SOLO LECTURA":"");
   }
   function buildFromMeshes(meshes,name){
+    setMode("3d");
     clearParts();currentName=name||"modelo.stp";
     const saved=loadSaved(currentName),n=meshes.length;
     meshes.forEach((m,i)=>{
@@ -350,6 +403,8 @@
     finalizeAssembly(parseInt(explode.value,10)||0,null);
   }
   function buildFromProject(prj){
+    if(prj&&prj.type==="2d"){build2DFromProject(prj);return;}
+    setMode("3d");
     clearParts();currentName=prj.name||"proyecto.stp";
     (prj.parts||[]).forEach((p,i)=>{
       const id=p.id||("P"+String(i+1).padStart(2,"0"));
@@ -446,6 +501,7 @@
 
   // ---------- BOM ----------
   function renderBOM(){
+    if(appMode==="2d"){render2DBOM();return;}
     const q=(filterEl.value||"").toLowerCase().trim();listEl.innerHTML="";
     parts.forEach(p=>{
       if(q&&!(p.id.toLowerCase().includes(q)||(p.text||"").toLowerCase().includes(q)))return;
@@ -484,6 +540,7 @@
   // ---------- publish / export project ----------
   function r4(x){return Math.round(x*1e4)/1e4;}
   function exportProject(){
+    if(appMode==="2d"){publish2D();return;}
     if(!parts.length){alert("Primero carga un STP.");return;}
     const prj={v:1,name:currentName,createdAt:new Date().toISOString().slice(0,10),
       explode:parseInt(explode.value,10)||0,camera:captureCamera(),
@@ -507,14 +564,234 @@
     ),200);
   }
 
+  // ================= 2D (PDF) =================
+  let pdfjsLoaded=null;
+  function loadPdfJs(){
+    if(pdfjsLoaded)return pdfjsLoaded;
+    pdfjsLoaded=new Promise((res,rej)=>{
+      if(window.pdfjsLib){try{pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;}catch(e){}return res();}
+      const s=document.createElement("script");s.src=PDFJS_SRC;
+      s.onload=()=>{try{pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;}catch(e){}res();};
+      s.onerror=()=>rej(new Error("No se pudo cargar el lector de PDF (conexión)."));
+      document.head.appendChild(s);
+    });
+    return pdfjsLoaded;
+  }
+  async function loadPdfBuffer(buffer,name){
+    busy(true,"Abriendo PDF…");
+    try{
+      await loadPdfJs();
+      pdfDoc=await pdfjsLib.getDocument({data:new Uint8Array(buffer)}).promise;
+      pdfPages=pdfDoc.numPages;pdfPage=1;markers=[];sel2=null;
+      currentName=(name||"catalogo.pdf");
+      await renderPdfPage(1);
+      setMode("2d");emptyEl.classList.add("hidden");
+      updatePageUi();render2DBOM();
+      countEl.textContent="0 piezas";
+      sheetnote.textContent=currentName.toUpperCase()+"  ·  PDF pág "+pdfPage;
+    }catch(err){console.error(err);alert("No se pudo abrir el PDF.\n\n"+(err.message||err));}
+    finally{busy(false);}
+  }
+  async function renderPdfPage(n){
+    const page=await pdfDoc.getPage(n);
+    const base=page.getViewport({scale:1});
+    const scale=Math.min(3,Math.max(1,1500/base.width));
+    const vp=page.getViewport({scale});
+    const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+    img2={w:c.width,h:c.height,src:c.toDataURL("image/jpeg",0.82)};
+    setImage2D();
+    try{pdfText=await page.getTextContent();}catch(e){pdfText=null;}
+  }
+  function setImage2D(){
+    pg2d.src=img2.src;
+    pan2d.style.width=img2.w+"px";pan2d.style.height=img2.h+"px";
+    ov2d.setAttribute("viewBox","0 0 "+img2.w+" "+img2.h);ov2d.setAttribute("width",img2.w);ov2d.setAttribute("height",img2.h);
+    fit2D();render2DOverlay();
+  }
+  function updatePageUi(){$("#pgLabel").textContent="Pág "+pdfPage+"/"+pdfPages;}
+  async function gotoPage(n){
+    if(n<1||n>pdfPages||!pdfDoc)return;
+    if(markers.length && !confirm("Cambiar de página descartará los globos de esta página. ¿Continuar?"))return;
+    markers=[];sel2=null;pdfPage=n;
+    busy(true,"Renderizando página…");
+    try{await renderPdfPage(n);updatePageUi();render2DBOM();sheetnote.textContent=currentName.toUpperCase()+"  ·  PDF pág "+pdfPage;}
+    finally{busy(false);}
+  }
+
+  function fit2D(){
+    const sw=stage.clientWidth,sh=stage.clientHeight;
+    if(!img2.w)return;
+    zoom=Math.min(sw/img2.w,sh/img2.h)*0.94;
+    panx=(sw-img2.w*zoom)/2;pany=(sh-img2.h*zoom)/2;applyPan2D();
+  }
+  function applyPan2D(){pan2d.style.transform="translate("+panx+"px,"+pany+"px) scale("+zoom+")";}
+  function zoomAt(f,cx,cy){
+    const nz=Math.min(8,Math.max(0.08,zoom*f));
+    panx=cx-(cx-panx)*(nz/zoom);pany=cy-(cy-pany)*(nz/zoom);zoom=nz;applyPan2D();
+  }
+  function screenToImg(cx,cy){const r=pan2d.getBoundingClientRect();return {x:(cx-r.left)/r.width,y:(cy-r.top)/r.height};}
+  const clamp01=v=>Math.max(0,Math.min(1,v));
+
+  function render2DOverlay(){
+    const w=img2.w,R=Math.max(13,w*0.016);let out="";
+    markers.forEach(m=>{
+      const cx=m.x*img2.w,cy=m.y*img2.h,sel=(m.id===sel2);
+      out+='<g class="balloon" data-id="'+m.id+'">'
+        +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="'+(sel?'#2f6fb0':'#ff9e2c')+'" stroke="#17110a" stroke-width="'+(R*0.12).toFixed(1)+'"/>'
+        +'<text x="'+cx.toFixed(1)+'" y="'+(cy+R*0.34).toFixed(1)+'" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-weight="700" font-size="'+(R*0.95).toFixed(1)+'" fill="'+(sel?'#fff':'#241300')+'">'+m.id+'</text></g>';
+    });
+    ov2d.innerHTML=out;
+  }
+
+  function addMarker(x,y){
+    markers.push({id:String(markers.length+1),x:clamp01(x),y:clamp01(y),text:""});
+    render2DOverlay();render2DBOM();saveNow2();
+    select2(markers[markers.length-1].id,true);
+  }
+  function deleteMarker(id){
+    markers=markers.filter(m=>m.id!==id);
+    markers.forEach((m,i)=>m.id=String(i+1));
+    if(sel2===id)sel2=null;
+    render2DOverlay();render2DBOM();saveNow2();
+  }
+  function select2(id,scroll){
+    sel2=id;render2DOverlay();
+    document.querySelectorAll(".item").forEach(el=>{const on=el.getAttribute("data-id")===id;el.classList.toggle("sel",on);if(on&&scroll)el.scrollIntoView({block:"nearest",behavior:"smooth"});});
+  }
+
+  function render2DBOM(){
+    const q=(filterEl.value||"").toLowerCase().trim();listEl.innerHTML="";
+    countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+    markers.forEach(m=>{
+      if(q&&!(m.id.toLowerCase().includes(q)||(m.text||"").toLowerCase().includes(q)))return;
+      const row=document.createElement("div");row.className="item"+(m.id===sel2?" sel":"");row.setAttribute("data-id",m.id);
+      if(readOnly){
+        const t=m.text?escapeHtml(m.text):"— sin descripción —";
+        row.innerHTML='<div class="id mono" style="background:#241a08;border-color:#4a370f">'+m.id+'</div>'
+          +'<div class="fields"><div class="txt static'+(m.text?"":" empty")+'">'+t+'</div></div>';
+        row.addEventListener("click",()=>select2(m.id,false));
+      }else{
+        row.innerHTML='<div class="id mono" style="background:#241a08;border-color:#4a370f">'+m.id+'</div>'
+          +'<div class="fields"><input class="txt" type="text" placeholder="Descripción / N° de parte…" value="'+escapeAttr(m.text)+'"/></div>'
+          +'<button class="btn ghost" title="Eliminar globo" style="padding:6px 9px;align-self:center">✕</button>';
+        const input=row.querySelector("input.txt");
+        input.addEventListener("input",()=>{m.text=input.value;saveNow2();});
+        input.addEventListener("focus",()=>select2(m.id,false));
+        row.querySelector("button").addEventListener("click",e=>{e.stopPropagation();deleteMarker(m.id);});
+        row.addEventListener("click",e=>{if(e.target!==input&&e.target.tagName!=="BUTTON")select2(m.id,false);});
+      }
+      listEl.appendChild(row);
+    });
+  }
+
+  // pan / zoom / marker interaction
+  let ptrs=new Map(),dragM=null,panStart=null,pinch=null,downXY2=null,downBalloon=null;
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  view2d.addEventListener("pointerdown",e=>{
+    try{view2d.setPointerCapture(e.pointerId);}catch(_){}
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});downXY2=[e.clientX,e.clientY];view2d.classList.add("grabbing");
+    if(ptrs.size===2){const v=[...ptrs.values()];pinch={d:dist(v[0],v[1]),zoom,panx,pany};dragM=null;panStart=null;downBalloon=null;return;}
+    const b=e.target.closest(".balloon");
+    downBalloon=b?b.getAttribute("data-id"):null;
+    if(b&&!readOnly){dragM=markers.find(m=>m.id===downBalloon);panStart=null;}
+    else{panStart={x:e.clientX,y:e.clientY,panx,pany};}
+  });
+  view2d.addEventListener("pointermove",e=>{
+    if(!ptrs.has(e.pointerId))return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&ptrs.size>=2){const v=[...ptrs.values()];const nd=dist(v[0],v[1]);const mx=(v[0].x+v[1].x)/2,my=(v[0].y+v[1].y)/2;
+      const r=stage.getBoundingClientRect();zoom=pinch.zoom;panx=pinch.panx;pany=pinch.pany;zoomAt(nd/pinch.d,mx-r.left,my-r.top);return;}
+    if(dragM){const p=screenToImg(e.clientX,e.clientY);dragM.x=clamp01(p.x);dragM.y=clamp01(p.y);render2DOverlay();return;}
+    if(panStart){panx=panStart.panx+(e.clientX-panStart.x);pany=panStart.pany+(e.clientY-panStart.y);applyPan2D();}
+  });
+  function endPtr2(e){
+    view2d.classList.remove("grabbing");
+    const moved=downXY2?Math.hypot(e.clientX-downXY2[0],e.clientY-downXY2[1]):0;
+    const wasDrag=dragM,wasBalloon=downBalloon,wasPan=panStart;
+    ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
+    dragM=null;panStart=null;downBalloon=null;
+    if(moved>6){if(wasDrag)saveNow2();return;}
+    if(wasBalloon){select2(wasBalloon,true);return;}
+    if(!readOnly&&appMode==="2d"&&!wasDrag){const p=screenToImg(e.clientX,e.clientY);if(p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1)addMarker(p.x,p.y);return;}
+    select2(null,false);
+  }
+  view2d.addEventListener("pointerup",endPtr2);
+  view2d.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;dragM=null;panStart=null;view2d.classList.remove("grabbing");});
+  view2d.addEventListener("wheel",e=>{e.preventDefault();const r=stage.getBoundingClientRect();zoomAt(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+
+  function autoFill2D(){
+    if(!pdfText||!pdfText.items){alert("No hay texto extraíble en esta página.");return;}
+    const its=pdfText.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:Math.round(i.transform[5])}));
+    const lines={};its.forEach(i=>{(lines[i.y]=lines[i.y]||[]).push(i);});
+    const rows=Object.keys(lines).sort((a,b)=>b-a).map(k=>lines[k].sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
+    const map={};
+    rows.forEach(r=>{const m=r.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);if(m&&!map[m[1]])map[m[1]]=m[2]+" — "+m[3];});
+    let n=0;markers.forEach(mk=>{if(map[mk.id]){mk.text=map[mk.id];n++;}});
+    render2DBOM();saveNow2();
+    alert(n?("Rellené "+n+" descripción(es) desde la tabla del PDF. Revisa y corrige lo que haga falta."):"No pude emparejar filas de la tabla automáticamente en esta página.");
+  }
+
+  function build2DFromProject(prj){
+    setMode("2d");
+    currentName=prj.name||"despiece.pdf";
+    markers=(prj.markers||[]).map(m=>({id:String(m.id),x:+m.x,y:+m.y,text:m.text||""}));
+    img2={w:prj.imgW||1000,h:prj.imgH||1000,src:prj.image||""};
+    sel2=null;pdfDoc=null;
+    pg2d.onload=()=>{fit2D();render2DOverlay();};
+    setImage2D();
+    render2DBOM();
+    emptyEl.classList.add("hidden");
+    zoomgrp.style.display="flex";$("#pgPrev").style.display="none";$("#pgNext").style.display="none";$("#pgLabel").style.display="none";
+    countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+    sheetnote.textContent=currentName.toUpperCase()+"  ·  "+markers.length+" GLOBOS"+(readOnly?"  ·  SOLO LECTURA":"");
+  }
+  function publish2D(){
+    if(!img2.src){alert("Primero carga un PDF.");return;}
+    const prj={v:1,type:"2d",name:currentName,createdAt:new Date().toISOString().slice(0,10),
+      image:img2.src,imgW:img2.w,imgH:img2.h,
+      markers:markers.map(m=>({id:m.id,x:r4(m.x),y:r4(m.y),text:m.text}))};
+    const json=JSON.stringify(prj);
+    const base=(currentName.replace(/\.(pdf|json)$/i,"")||"despiece");
+    downloadBlob(new Blob([json],{type:"application/json"}),base+"_2d.json");
+    const mb=(json.length/1048576);
+    setTimeout(()=>alert(
+      "Despiece 2D publicado: "+base+"_2d.json  ("+mb.toFixed(mb<1?2:1)+" MB)\n\n"+
+      "Súbelo a /proyectos y compártelo:\n   …/index.html?proyecto=proyectos/"+base+"_2d.json\n\n"+
+      "Se ve como solo lectura, con la imagen, los globos y la leyenda."
+    ),200);
+  }
+  function saveNow2(){
+    if(readOnly)return;
+    try{localStorage.setItem("explo2:"+currentName,JSON.stringify(markers.map(m=>({id:m.id,x:m.x,y:m.y,text:m.text}))));}catch(e){}
+  }
+  async function export2DPNG(){
+    try{
+      const c=document.createElement("canvas");c.width=img2.w;c.height=img2.h;const ctx=c.getContext("2d");
+      const im=new Image();await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=img2.src;});
+      ctx.drawImage(im,0,0,img2.w,img2.h);
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+img2.w+'" height="'+img2.h+'">'+ov2d.innerHTML+'</svg>';
+      const io=new Image();await new Promise((res,rej)=>{io.onload=res;io.onerror=rej;io.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);});
+      ctx.drawImage(io,0,0,img2.w,img2.h);
+      c.toBlob(b=>downloadBlob(b,(currentName.replace(/\.(pdf|json)$/i,"")||"despiece")+"_2d.png"),"image/png");
+    }catch(e){alert("No se pudo exportar la imagen.");}
+  }
+
   // ---------- CSV / PNG ----------
   function csvCell(s){s=(s||"").replace(/"/g,'""');return /[",\n]/.test(s)?`"${s}"`:s;}
   function exportCSV(){
-    let csv="ID,Color,Descripcion,Malla\n";
-    parts.forEach(p=>{csv+=[p.id,p.hex,csvCell(p.text),csvCell(p.name)].join(",")+"\n";});
-    downloadBlob(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),(currentName.replace(/\.(stp|step|json)$/i,"")||"leyenda")+"_BOM.csv");
+    let csv;
+    if(appMode==="2d"){
+      csv="ID,Descripcion\n";
+      markers.forEach(m=>{csv+=[m.id,csvCell(m.text)].join(",")+"\n";});
+    }else{
+      csv="ID,Color,Descripcion,Malla\n";
+      parts.forEach(p=>{csv+=[p.id,p.hex,csvCell(p.text),csvCell(p.name)].join(",")+"\n";});
+    }
+    downloadBlob(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),(currentName.replace(/\.(stp|step|pdf|json)$/i,"")||"leyenda")+"_BOM.csv");
   }
   async function exportPNG(){
+    if(appMode==="2d"){export2DPNG();return;}
     try{
       const w=stage.clientWidth,h=stage.clientHeight,dpr=Math.min(window.devicePixelRatio||1,2);
       const out=document.createElement("canvas");out.width=w*dpr;out.height=h*dpr;
@@ -580,10 +857,19 @@
   // ---------- events ----------
   $("#btnOpen").onclick=()=>fileInput.click();
   $("#btnOpen2").onclick=()=>fileInput.click();
+  $("#btnOpenPDF").onclick=()=>filePdf.click();
+  $("#btnOpenPDF2").onclick=()=>filePdf.click();
   $("#btnOpenProj").onclick=()=>fileProj.click();
   $("#btnOpenProj2").onclick=()=>fileProj.click();
   fileInput.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
     const rd=new FileReader();rd.onload=()=>loadStepBuffer(rd.result,f.name);rd.onerror=()=>alert("No se pudo leer el archivo.");rd.readAsArrayBuffer(f);fileInput.value="";});
+  filePdf.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
+    const rd=new FileReader();rd.onload=()=>loadPdfBuffer(rd.result,f.name);rd.onerror=()=>alert("No se pudo leer el PDF.");rd.readAsArrayBuffer(f);filePdf.value="";});
+  $("#pgPrev").onclick=()=>gotoPage(pdfPage-1);
+  $("#pgNext").onclick=()=>gotoPage(pdfPage+1);
+  $("#zoomIn").onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1.2,r.width/2,r.height/2);};
+  $("#zoomOut").onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1/1.2,r.width/2,r.height/2);};
+  $("#btnAuto").onclick=autoFill2D;
   fileProj.addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
     try{const prj=JSON.parse(await readFileText(f));buildFromProject(prj);}catch(err){alert("Proyecto inválido.\n"+(err.message||err));}fileProj.value="";});
 
@@ -591,12 +877,14 @@
   $("#views").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;$("#views").querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");setView(b.getAttribute("data-v"));});
   $("#btnTags").onclick=e=>{showTags=!showTags;e.target.textContent=showTags?"Ocultar IDs":"Mostrar IDs";if(!showTags)leaders.innerHTML="";};
   $("#btnOutline").onclick=e=>{showOutline=!showOutline;e.target.textContent="Contornos "+(showOutline?"✓":"✕");parts.forEach(p=>{if(p.edges)p.edges.visible=showOutline;});};
-  $("#btnFit").onclick=()=>{if(parts.length)fitCamera();};
+  $("#btnFit").onclick=()=>{if(appMode==="2d"){fit2D();}else if(parts.length){fitCamera();}};
   $("#btnCat").onclick=()=>{const b=params.get("cat")||"catalogo.html";if(history.length>1)history.back();else location.href=b;};
   $("#btnPublish").onclick=exportProject;
   $("#btnCsv").onclick=exportCSV;
   $("#btnPng").onclick=exportPNG;
-  $("#btnClear").onclick=()=>{if(!parts.length)return;if(!confirm("¿Borrar todas las descripciones?"))return;parts.forEach(p=>p.text="");saveNow();renderBOM();};
+  $("#btnClear").onclick=()=>{
+    if(appMode==="2d"){if(!markers.length)return;if(!confirm("¿Borrar todas las descripciones?"))return;markers.forEach(m=>m.text="");saveNow2();render2DBOM();return;}
+    if(!parts.length)return;if(!confirm("¿Borrar todas las descripciones?"))return;parts.forEach(p=>p.text="");saveNow();renderBOM();};
   $("#demo").addEventListener("click",e=>{e.preventDefault();busy(true,"Generando ejemplo…");setTimeout(()=>{buildDemo();busy(false);},60);});
 
   // drag & drop (editor: STP or .json ; viewer: .json only)
@@ -607,7 +895,8 @@
     const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
     if(/\.(json|explo)$/i.test(f.name)){try{buildFromProject(JSON.parse(await readFileText(f)));}catch(err){alert("Proyecto inválido.");}return;}
     if(readOnly)return;
-    if(!/\.(stp|step)$/i.test(f.name)){alert("Sube un .stp, .step o un proyecto .json");return;}
+    if(/\.pdf$/i.test(f.name)){const rd=new FileReader();rd.onload=()=>loadPdfBuffer(rd.result,f.name);rd.readAsArrayBuffer(f);return;}
+    if(!/\.(stp|step)$/i.test(f.name)){alert("Sube un .stp, .step, .pdf o un proyecto .json");return;}
     const rd=new FileReader();rd.onload=()=>loadStepBuffer(rd.result,f.name);rd.readAsArrayBuffer(f);
   });
 
