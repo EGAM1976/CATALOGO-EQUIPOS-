@@ -246,6 +246,11 @@
      ]
     }
    ]
+  },
+  {
+   "id": "loreto",
+   "nombre": "loreto",
+   "zonas": []
   }
  ]
 }
