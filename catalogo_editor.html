@@ -131,6 +131,8 @@
     <button class="btn ghost" id="btnUpload" title="Cargar un catalogo.json desde tu computadora">⇪ Cargar archivo</button>
     <input type="file" id="fileCat" accept=".json,application/json" class="hidden" />
     <button class="btn pub" id="btnSaveGH" title="Guardar el catálogo directamente en GitHub">☁ Guardar en GitHub</button>
+    <button class="btn ghost" id="btnUpdApp" title="Subir una versión nueva de las páginas a GitHub">⬆ Actualizar app</button>
+    <input type="file" id="fileApp" accept=".html,text/html" multiple class="hidden" />
     <button class="btn ghost" id="btnGHCfg" title="Conectar con GitHub">⚙</button>
     <button class="btn ghost" id="btnExport" title="Descargar el catalogo.json actualizado">⬇ Descargar</button>
   </div>
@@ -238,6 +240,54 @@
     }
   };
   ghUpdateUi();
+
+  // ---------- actualizar las páginas de la app desde el navegador ----------
+  const APP_FILES=[
+    {title:"Editor de Catálogo",    path:"catalogo_editor.html"},
+    {title:"Vista Explosionada",    path:"explosionado.html"},
+    {title:"Catálogo de Despieces", path:"catalogo.html"}
+  ];
+  function detectAppFile(text,fname){
+    const m=/<title>([^<]*)<\/title>/i.exec(text||"");
+    const t=(m?m[1]:"").trim();
+    let hit=APP_FILES.find(f=>t.indexOf(f.title)===0);
+    if(hit)return hit.path;
+    const base=(fname||"").replace(/\s*\(\d+\)/g,"").trim().toLowerCase();
+    hit=APP_FILES.find(f=>f.path.toLowerCase()===base);
+    return hit?hit.path:null;
+  }
+  $("#btnUpdApp").onclick=()=>{
+    if(!GH.ready()){ghModal();return;}
+    $("#fileApp").click();
+  };
+  $("#fileApp").addEventListener("change",async e=>{
+    const files=Array.from(e.target.files||[]);e.target.value="";
+    if(!files.length)return;
+    const jobs=[];
+    for(const f of files){
+      const text=await f.text();
+      if(!/<html/i.test(text)){alert("\""+f.name+"\" no parece una página HTML de la app. Se omite.");continue;}
+      const path=detectAppFile(text,f.name);
+      if(!path){alert("No reconocí qué página es \""+f.name+"\". Se omite.");continue;}
+      jobs.push({path,text,size:text.length,orig:f.name});
+    }
+    if(!jobs.length)return;
+    const list=jobs.map(j=>"  - "+j.orig+"   =>   "+j.path+"   ("+Math.round(j.size/1024)+" KB)").join("\n");
+    if(!confirm("Se van a subir a la raíz del repositorio, reemplazando las versiones actuales:\n\n"+list+"\n\n¿Continuar?"))return;
+    const btn=$("#btnUpdApp");const old=btn.textContent;
+    btn.textContent="Subiendo…";btn.disabled=true;
+    const okList=[],errList=[];
+    for(const j of jobs){
+      try{ await GH.putFile(j.path,j.text,"Actualizar "+j.path+" (desde el editor)"); okList.push(j.path); }
+      catch(err){ errList.push(j.path+": "+err.message); }
+    }
+    btn.textContent=old;btn.disabled=false;
+    let msg="";
+    if(okList.length)msg+="Actualizado en GitHub:\n  "+okList.join("\n  ")+"\n\nGitHub Pages tarda ~1 minuto. Después recarga con Ctrl+Shift+R.";
+    if(errList.length)msg+=(msg?"\n\n":"")+"Con error:\n  "+errList.join("\n  ");
+    alert(msg);
+    if(okList.length)toast("Páginas actualizadas en GitHub.");
+  });
 
   function boot(){
     $("#loadStage").classList.add("hidden");
