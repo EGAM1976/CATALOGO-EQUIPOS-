@@ -144,6 +144,17 @@
   .item .delx:hover{color:#ff8080;border-color:#5a2a2a;background:#241414}
   .item .dupx{flex:none;background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer}
   .item .dupx:hover{color:var(--accent);border-color:#4a370f;background:#241a08}
+  .tabBtn{transition:.15s}
+  .tabBtn.active{background:var(--accent)!important;color:#241300!important;border-color:var(--accent)!important}
+  .dbEntry{padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:3px}
+  .dbEntry+.dbEntry{margin-top:2px}
+  .dbEntry:hover{background:var(--panel-2);border-color:var(--line)}
+  .dbEntry .dbPos{font-family:"JetBrains Mono";font-size:11px;color:var(--accent);font-weight:700}
+  .dbEntry .dbCode{font-family:"JetBrains Mono";font-size:12px;color:#8fd4ff}
+  .dbEntry .dbDesc{font-size:12.5px;color:var(--text)}
+  .dbEntry .dbPage{font-size:10px;color:var(--faint)}
+  .dbScan{text-align:center;padding:20px;color:var(--faint);font-size:12.5px}
+  .dbTotal{font-size:11px;color:var(--faint);font-family:"JetBrains Mono";padding:6px 10px}
   .item .stat-line{display:flex;gap:8px;font-size:11.5px;color:var(--text);margin-top:2px}
   .item .stat-line .pn{font-family:"JetBrains Mono";color:var(--accent)}
   .item .idedit{font-family:"JetBrains Mono";font-weight:600;font-size:12px;color:var(--accent);border-radius:6px;padding:2px 6px;border:1px solid #4a370f;width:52px;text-align:center}
@@ -320,9 +331,14 @@
           <h3 class="disp">Leyenda / BOM</h3>
           <span class="count mono" id="count">0 piezas</span>
         </div>
+        <div class="row" style="gap:4px;margin-top:8px">
+          <button class="btn tabBtn active" id="tabBom" style="flex:1;font-size:11px;padding:6px">Leyenda</button>
+          <button class="btn tabBtn" id="tabDb" style="flex:1;font-size:11px;padding:6px">Base de datos</button>
+        </div>
         <input class="filter" id="filter" placeholder="Filtrar por ID o texto…" />
       </div>
       <div class="list" id="list"></div>
+      <div class="list hidden" id="dbList" style="padding:6px 8px"></div>
       <div class="bomfoot">
         <button class="btn" id="btnCsv">⬇ CSV</button>
         <button class="btn" id="btnPng">⬇ Imagen</button>
@@ -889,6 +905,8 @@
       if(!readOnly){busy(true,"Detectando piezas…");await autoDetectBalloons(true);}
       else{render2DBOM();}
       sheetnote.textContent=currentName.toUpperCase()+"  ·  PDF pág "+pdfPage;
+      // Scan entire PDF for parts database in background
+      if(pdfDoc)scanPdfForParts().then(()=>{renderDbList();});
     }catch(err){console.error(err);alert("No se pudo abrir el PDF.\n\n"+(err.message||err));}
     finally{busy(false);}
   }
@@ -1415,6 +1433,120 @@
             :"No pude emparejar los números de los globos con la tabla. Revisa que los números coincidan.");
     }
   }
+
+  // ===== BASE DE DATOS DE REPUESTOS =====
+  let partsDb=[]; // {pos, codigo, desc, qty, page, figCode}
+  let activeTab="bom";
+  const dbListEl=$("#dbList"),listEl2=$("#list");
+
+  function switchTab(tab){
+    activeTab=tab;
+    $("#tabBom").classList.toggle("active",tab==="bom");
+    $("#tabDb").classList.toggle("active",tab==="db");
+    listEl2.classList.toggle("hidden",tab!=="bom");
+    dbListEl.classList.toggle("hidden",tab!=="db");
+    if(tab==="db")renderDbList();
+  }
+  $("#tabBom").onclick=()=>switchTab("bom");
+  $("#tabDb").onclick=()=>switchTab("db");
+
+  async function scanPdfForParts(){
+    if(!pdfDoc)return;
+    partsDb=[];
+    busy(true,"Escaneando PDF — buscando tablas de repuestos…");
+    try{
+      for(let pn=1;pn<=pdfDoc.numPages;pn++){
+        if(pn%10===0)busy(true,"Escaneando página "+pn+" de "+pdfDoc.numPages+"…");
+        const page=await pdfDoc.getPage(pn);
+        const tc=await page.getTextContent();
+        const items=tc.items.filter(i=>i.str&&i.str.trim());
+        // Group by Y
+        const byY={};
+        items.forEach(it=>{
+          const y=Math.round(it.transform[5]);
+          const x=it.transform[4];
+          (byY[y]=byY[y]||[]).push({s:it.str.trim(),x});
+        });
+        // Try to find figure code on this page
+        const allText=items.map(i=>i.str).join(" ");
+        const figMatch=allText.match(/FIGURA\s+(\d{10,})/);
+        const figCode=figMatch?figMatch[1]:"";
+
+        Object.values(byY).forEach(row=>{
+          row.sort((a,b)=>a.x-b.x);
+          const line=row.map(r=>r.s).join(" ").replace(/\s+/g," ").trim();
+          // Sidel: 0001  03024696801  CUERPO  2
+          let m=line.match(/^(0{0,3}\d{1,4})\s+(\d{5,15})\s+(.+?)\s+(\d{1,3})$/);
+          if(m){
+            partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:+m[4],page:pn,figCode});
+            return;
+          }
+          // Filtec: 1  27591  Right-Hand Valve Plate
+          m=line.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);
+          if(m){
+            partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:0,page:pn,figCode});
+          }
+        });
+      }
+      countEl.textContent=partsDb.length+" repuestos en BD";
+    }catch(err){console.error(err);}
+    finally{busy(false);}
+  }
+
+  function renderDbList(){
+    const q=(filterEl.value||"").toLowerCase().trim();
+    dbListEl.innerHTML="";
+    if(!partsDb.length){
+      dbListEl.innerHTML='<div class="dbScan">'+(pdfDoc?"Escaneando…":"Carga un PDF para ver la base de datos.")+'</div>';
+      return;
+    }
+    // Deduplicate by codigo
+    const seen=new Map();
+    partsDb.forEach(p=>{
+      const key=p.codigo+"|"+p.desc;
+      if(!seen.has(key))seen.set(key,{...p,pages:[p.page]});
+      else seen.get(key).pages.push(p.page);
+    });
+    let entries=[...seen.values()];
+    if(q){
+      entries=entries.filter(p=>
+        p.codigo.toLowerCase().includes(q)||
+        p.desc.toLowerCase().includes(q)||
+        p.pos.toLowerCase().includes(q)
+      );
+    }
+    const total=document.createElement("div");total.className="dbTotal";
+    total.textContent=entries.length+" de "+seen.size+" repuestos"+(q?" (filtrado)":"");
+    dbListEl.appendChild(total);
+
+    entries.slice(0,200).forEach(p=>{
+      const d=document.createElement("div");d.className="dbEntry";
+      const pages=[...new Set(p.pages)].sort((a,b)=>a-b);
+      d.innerHTML='<div><span class="dbPos">POS '+escapeHtml(p.pos)+'</span> <span class="dbPage">pág '+pages.join(", ")+'</span></div>'
+        +'<div class="dbCode">'+escapeHtml(p.codigo)+'</div>'
+        +'<div class="dbDesc">'+escapeHtml(p.desc)+(p.qty?' <span style="color:var(--faint)">×'+p.qty+'</span>':'')+'</div>';
+      d.onclick=()=>{
+        // Navigate to the page where this part appears
+        const targetPage=pages[0];
+        if(pdfDoc&&targetPage!==pdfPage){
+          gotoPage(targetPage);
+        }
+        switchTab("bom");
+      };
+      dbListEl.appendChild(d);
+    });
+    if(entries.length>200){
+      const more=document.createElement("div");more.className="dbScan";
+      more.textContent="Mostrando 200 de "+entries.length+" — usa el filtro para encontrar más.";
+      dbListEl.appendChild(more);
+    }
+  }
+
+  // Hook filter to also filter DB list
+  const origFilterHandler=filterEl.oninput;
+  filterEl.addEventListener("input",()=>{
+    if(activeTab==="db")renderDbList();
+  });
 
   function build2DFromProject(prj){
     setMode("2d");
