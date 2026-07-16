@@ -119,6 +119,11 @@
            "nombre": "Lofree Touch.step",
            "tipo": "3D",
            "proyecto": "proyectos/Lofree_Touch.json"
+          },
+          {
+           "nombre": "MAUSE.stp",
+           "tipo": "3D",
+           "proyecto": "proyectos/MAUSE.json"
           }
          ]
         }
