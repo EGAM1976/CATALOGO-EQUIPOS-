@@ -73,6 +73,11 @@
        "id": "linea-3",
        "nombre": "Linea 3",
        "maquinas": []
+      },
+      {
+       "id": "linea-4",
+       "nombre": "Linea 4",
+       "maquinas": []
       }
      ]
     },
