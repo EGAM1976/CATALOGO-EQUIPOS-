@@ -51,9 +51,27 @@
         },
         {
          "id": "etiquetadora",
-         "nombre": "Etiquetadora",
+         "nombre": "Lavadora Botellas",
          "marca": "Sidel",
          "proyecto": ""
+        },
+        {
+         "id": "paletizadora",
+         "nombre": "Paletizadora",
+         "marca": "",
+         "despieces": []
+        },
+        {
+         "id": "inspector-electronico",
+         "nombre": "Inspector Electronico Nivel",
+         "marca": "",
+         "despieces": []
+        },
+        {
+         "id": "encajonadora",
+         "nombre": "Encajonadora",
+         "marca": "",
+         "despieces": []
         }
        ]
       },
