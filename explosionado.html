@@ -887,7 +887,7 @@
   async function renderPdfPage(n){
     const page=await pdfDoc.getPage(n);
     const base=page.getViewport({scale:1});
-    const scale=Math.min(3,Math.max(1,1500/base.width));
+    const scale=Math.min(4,Math.max(1.5,2000/base.width));
     const vp=page.getViewport({scale});
     curPage=page;curViewport=vp;
     const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);
@@ -919,7 +919,7 @@
   function fit2D(){
     const sw=stage.clientWidth,sh=stage.clientHeight;
     if(!img2.w)return;
-    zoom=Math.min(sw/img2.w,sh/img2.h)*0.94;
+    zoom=Math.min(sw/img2.w,sh/img2.h)*0.98;
     panx=(sw-img2.w*zoom)/2;pany=(sh-img2.h*zoom)/2;applyPan2D();
   }
   function applyPan2D(){pan2d.style.transform="translate("+panx+"px,"+pany+"px) scale("+zoom+")";}
@@ -1132,6 +1132,39 @@
     results.forEach(r=>{if(!r.id){while(usedNums.has(next))next++;r.id=String(next);usedNums.add(next);next++;}});
     return results;
   }
+
+  // Detect numbers aligned in a straight row or column (BOM/table entries) and remove them.
+  // Keeps only scattered numbers (true callouts on the drawing).
+  function filterAlignedLabels(labels){
+    if(labels.length<3)return labels;
+    const TOL=15; // pixels tolerance for "same line"
+
+    // Group by similar Y (horizontal lines)
+    const yGroups={};
+    labels.forEach(l=>{
+      const yk=Math.round(l.y/TOL)*TOL;
+      (yGroups[yk]=yGroups[yk]||[]).push(l);
+    });
+    // Group by similar X (vertical lines)
+    const xGroups={};
+    labels.forEach(l=>{
+      const xk=Math.round(l.x/TOL)*TOL;
+      (xGroups[xk]=xGroups[xk]||[]).push(l);
+    });
+
+    // A line of 4+ aligned numbers is almost certainly a table
+    const inTable=new Set();
+    Object.values(yGroups).forEach(g=>{
+      if(g.length>=4) g.forEach(l=>inTable.add(l));
+    });
+    Object.values(xGroups).forEach(g=>{
+      if(g.length>=4) g.forEach(l=>inTable.add(l));
+    });
+
+    const scattered=labels.filter(l=>!inTable.has(l));
+    // If ALL labels were in tables, return the original (better than nothing)
+    return scattered.length>0?scattered:labels;
+  }
   async function autoDetectBalloons(silent){
     if(!pdfDoc||!curPage||!curViewport)return;
     try{
@@ -1141,8 +1174,10 @@
       let boxes=dedupeBoxes(raw).filter(b=>b.w>minDim*0.025&&b.h>minDim*0.025&&(b.w*b.h)<pageArea*0.8);
       boxes=sortReadingOrder(boxes);
       const labels=extractCalloutLabels(pdfText,curViewport);
-      // Filter labels in the title block area (bottom 20%, right 50% of page) — those are revision/page numbers, not callouts
-      const drawLabels=labels.filter(l=>!(l.y>img2.h*0.80 && l.x>img2.w*0.45));
+      // Filter labels in the title block area (bottom 20%, right 50% of page)
+      let drawLabels=labels.filter(l=>!(l.y>img2.h*0.80 && l.x>img2.w*0.45));
+      // Filter out numbers aligned in a straight line (horizontal or vertical) — those are BOM table entries
+      drawLabels=filterAlignedLabels(drawLabels);
       if(!boxes.length&&drawLabels.length){
         // No photos found but there ARE printed callout numbers → use those as balloon positions
         // Deduplicate by number (same callout can appear in main view + detail view)
