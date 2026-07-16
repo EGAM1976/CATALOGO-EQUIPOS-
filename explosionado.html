@@ -166,6 +166,60 @@
 </style>
 </head>
 <body>
+<!-- ===== CONTRASEÑA DE ACCESO ===== -->
+<div id="authGate" style="position:fixed;inset:0;z-index:9999;background:radial-gradient(90% 60% at 100% 0%,rgba(59,130,246,.10),transparent 60%),radial-gradient(70% 50% at 0% 100%,rgba(255,158,44,.08),transparent 55%),#0e151d;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
+<div style="max-width:380px;width:100%;text-align:center">
+<div style="width:56px;height:56px;border-radius:14px;margin:0 auto 18px;position:relative;background:radial-gradient(120% 120% at 30% 20%,#ffb455,#ff9e2c 45%,#c96f00);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 4px 18px rgba(255,158,44,.35)"><div style="position:absolute;inset:0;margin:auto;width:22px;height:22px;background:#0e151d;clip-path:polygon(0 20%,50% 0,100% 20%,100% 45%,50% 65%,0 45%)"></div></div>
+<h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#e8eef4;font-size:20px;margin:0 0 4px">Sistema de Despiece de Repuestos</h2>
+<p style="color:#5f7386;font-size:12.5px;margin:0 0 22px">Acceso restringido · ACL</p>
+<input id="authPass" type="password" placeholder="Contraseña" style="width:100%;background:#151f2a;border:1px solid #28353f;color:#e8eef4;border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;text-align:center" />
+<button id="authBtn" style="margin-top:12px;width:100%;background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border:1px solid #e98a12;border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">Entrar</button>
+<p id="authErr" style="color:#ff5d5d;font-size:12.5px;margin:10px 0 0;min-height:18px"></p>
+</div>
+</div>
+<script>
+(function(){
+  // ── PARA CAMBIAR LA CONTRASEÑA: ──
+  // 1. Abre esta página en la consola del navegador (F12 → Console)
+  // 2. Escribe:  calcHash('TU_NUEVA_CONTRASEÑA')
+  // 3. Copia el resultado y reemplaza el valor de HASH abajo
+  // 4. Sube el archivo actualizado a GitHub
+  var HASH="36b00e26f465308d0c505a6a1867b5acbc2d95a8648d08029c276fae421d9a13";
+  // Contraseña inicial: ACL2026 (cámbiala después de probar)
+
+  var DAYS=30; // días que recuerda la sesión
+  var KEY="acl:auth";
+  function saved(){try{var s=localStorage.getItem(KEY);if(!s)return false;var d=JSON.parse(s);return d.h===HASH&&Date.now()<d.exp;}catch(e){return false;}}
+  if(saved()){document.getElementById("authGate").style.display="none";}
+  else{document.body.style.overflow="hidden";}
+
+  async function sha256(str){
+    var buf=new TextEncoder().encode(str);
+    var hb=await crypto.subtle.digest("SHA-256",buf);
+    return Array.from(new Uint8Array(hb)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+  }
+  window.calcHash=async function(p){var h=await sha256(p);console.log("Hash para pegar en HASH:\n"+h);return h;};
+
+  document.getElementById("authBtn").onclick=async function(){
+    var p=document.getElementById("authPass").value;
+    if(!p){document.getElementById("authErr").textContent="Escribe la contraseña.";return;}
+    var h=await sha256(p);
+    if(h===HASH){
+      try{localStorage.setItem(KEY,JSON.stringify({h:HASH,exp:Date.now()+DAYS*86400000}));}catch(e){}
+      document.getElementById("authGate").style.display="none";
+      document.body.style.overflow="";
+    }else{
+      document.getElementById("authErr").textContent="Contraseña incorrecta.";
+      document.getElementById("authPass").value="";
+      document.getElementById("authPass").focus();
+    }
+  };
+  document.getElementById("authPass").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("authBtn").click();});
+})();
+</script>
+<!-- ===== FIN CONTRASEÑA ===== -->
+
+
 <div class="app">
   <header>
     <div class="brand">
