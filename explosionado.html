@@ -267,6 +267,9 @@
         <span style="width:1px;height:18px;background:var(--line)"></span>
         <button class="btn ghost zbtn" id="zoomOut" title="Alejar">−</button>
         <button class="btn ghost zbtn" id="zoomIn" title="Acercar">+</button>
+        <span style="width:1px;height:18px;background:var(--line)"></span>
+        <button class="btn ghost zbtn" id="ballSm" title="Globos más pequeños">●−</button>
+        <button class="btn ghost zbtn" id="ballLg" title="Globos más grandes">●+</button>
         <button class="btn ghost editor-only" id="btnDetect" title="Detectar automáticamente las fotos de repuestos">↻ Detectar piezas</button>
         <button class="btn ghost editor-only" id="btnAuto" title="Rellenar N° de parte y descripción desde la tabla del PDF">Auto-leyenda</button>
       </div>
@@ -936,8 +939,9 @@
   function screenToImg(cx,cy){const r=pan2d.getBoundingClientRect();return {x:(cx-r.left)/r.width,y:(cy-r.top)/r.height};}
   const clamp01=v=>Math.max(0,Math.min(1,v));
 
+  let balloonScale=1.0;
   function render2DOverlay(){
-    const w=img2.w,R=Math.max(13,w*0.016);let out="";
+    const w=img2.w,baseR=Math.max(13,w*0.016),R=baseR*balloonScale;let out="";
     markers.forEach(m=>{
       const cx=m.x*img2.w,cy=m.y*img2.h,sel=(m.id===sel2);
       out+='<g class="balloon" data-id="'+m.id+'">'
@@ -1676,6 +1680,8 @@
   $("#btnDetect").onclick=reDetectBalloons;
   $("#btnUndo").onclick=undo;
   $("#btnRedo").onclick=redo;
+  $("#ballSm").onclick=()=>{balloonScale=Math.max(0.3,balloonScale-0.15);render2DOverlay();};
+  $("#ballLg").onclick=()=>{balloonScale=Math.min(3.0,balloonScale+0.15);render2DOverlay();};
   fileProj.addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
     try{const prj=JSON.parse(await readFileText(f));buildFromProject(prj);}catch(err){alert("Proyecto inválido.\n"+(err.message||err));}fileProj.value="";});
 
