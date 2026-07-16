@@ -1325,15 +1325,91 @@
 
 
   function autoFill2D(silent){
-    if(!pdfText||!pdfText.items){if(!silent)alert("No hay texto extraíble en esta página.");return;}
-    const its=pdfText.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:Math.round(i.transform[5])}));
-    const lines={};its.forEach(i=>{(lines[i.y]=lines[i.y]||[]).push(i);});
-    const rows=Object.keys(lines).sort((a,b)=>b-a).map(k=>lines[k].sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
+    // First try current page text
+    const mapCur=parseBomFromText(pdfText);
+    if(Object.keys(mapCur).length){
+      applyBomMap(mapCur,silent);
+      return;
+    }
+    // If current page has no BOM, search nearby pages
+    if(pdfDoc){
+      searchBomInPdf(silent);
+    }else if(!silent){
+      alert("No encontré tabla de repuestos en esta página.");
+    }
+  }
+
+  function parseBomFromText(textContent){
+    if(!textContent||!textContent.items)return {};
+    const items=textContent.items.filter(i=>i.str&&i.str.trim());
+    // Group by Y coordinate (rows)
+    const byY={};
+    items.forEach(it=>{
+      const y=Math.round(it.transform[5]);
+      const x=it.transform[4];
+      (byY[y]=byY[y]||[]).push({s:it.str.trim(),x});
+    });
     const map={};
-    rows.forEach(r=>{const m=r.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);if(m&&!map[m[1]])map[m[1]]={parte:m[2],text:m[3]};});
-    let n=0;markers.forEach(mk=>{if(map[mk.id]){if(!mk.parte)mk.parte=map[mk.id].parte;if(!mk.text)mk.text=map[mk.id].text;n++;}});
+    Object.values(byY).forEach(row=>{
+      row.sort((a,b)=>a.x-b.x);
+      const line=row.map(r=>r.s).join(" ").replace(/\s+/g," ").trim();
+      // Pattern 1: Sidel style — 0001  03024696801  CUERPO  2
+      let m=line.match(/^(0{0,3}\d{1,4})\s+(\d{5,15})\s+(.+?)\s+\d{1,3}$/);
+      if(m){
+        const pos=String(parseInt(m[1],10));
+        if(!map[pos])map[pos]={parte:m[2],text:m[3]};
+        return;
+      }
+      // Pattern 2: Filtec style — 1  27591  Right-Hand Valve Plate
+      m=line.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);
+      if(m&&!map[m[1]])map[m[1]]={parte:m[2],text:m[3]};
+    });
+    return map;
+  }
+
+  async function searchBomInPdf(silent){
+    if(!pdfDoc)return;
+    busy(true,"Buscando tabla de repuestos en el PDF…");
+    try{
+      // Search nearby pages first (±5), then expand
+      const cur=pdfPage;
+      const pages=[];
+      for(let d=1;d<=Math.min(pdfDoc.numPages,20);d++){
+        if(cur+d<=pdfDoc.numPages)pages.push(cur+d);
+        if(cur-d>=1)pages.push(cur-d);
+      }
+      for(const pn of pages){
+        const page=await pdfDoc.getPage(pn);
+        const tc=await page.getTextContent();
+        const map=parseBomFromText(tc);
+        const keys=Object.keys(map);
+        if(keys.length>=2){
+          applyBomMap(map,silent,pn);
+          return;
+        }
+      }
+      if(!silent)alert("No encontré una tabla de repuestos en las páginas cercanas del PDF.");
+    }catch(err){
+      console.error(err);
+      if(!silent)alert("Error al buscar tabla: "+(err.message||err));
+    }finally{busy(false);}
+  }
+
+  function applyBomMap(map,silent,fromPage){
+    let n=0;
+    markers.forEach(mk=>{
+      const entry=map[mk.id];
+      if(entry){
+        if(!mk.parte&&entry.parte){mk.parte=entry.parte;n++;}
+        if(!mk.text&&entry.text)mk.text=entry.text;
+      }
+    });
     render2DBOM();saveNow2();
-    if(!silent)alert(n?("Rellené N° de parte y descripción de "+n+" pieza(s) desde la tabla del PDF. Revisa y agrega el código SAP."):"No pude emparejar filas de la tabla automáticamente en esta página.");
+    if(!silent){
+      const src=fromPage?(" (encontrada en página "+fromPage+")."):"";
+      alert(n?("Rellené "+n+" pieza(s) con código y descripción desde la tabla del PDF"+src+" Revisa y agrega el código SAP.")
+            :"No pude emparejar los números de los globos con la tabla. Revisa que los números coincidan.");
+    }
   }
 
   function build2DFromProject(prj){
