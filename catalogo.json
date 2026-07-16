@@ -114,6 +114,11 @@
            "nombre": "117103_vol01_rs4_sport_3_flux_rtr_011820147_e.pdf",
            "tipo": "2D",
            "proyecto": "proyectos/117103_vol01_rs4_sport_3_flux_rtr_011820147_e_2d.json"
+          },
+          {
+           "nombre": "Lofree Touch.step",
+           "tipo": "3D",
+           "proyecto": "proyectos/Lofree_Touch.json"
           }
          ]
         }
