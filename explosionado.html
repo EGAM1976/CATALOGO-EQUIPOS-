@@ -256,6 +256,9 @@
       <button class="btn ghost" id="btnOutline" title="Contornos técnicos">Contornos ✓</button>
 
       <div class="group zoomgrp" id="zoomgrp">
+        <button class="btn ghost zbtn editor-only" id="btnUndo" title="Deshacer (Ctrl+Z)">↩</button>
+        <button class="btn ghost zbtn editor-only" id="btnRedo" title="Rehacer (Ctrl+Y)">↪</button>
+        <span style="width:1px;height:18px;background:var(--line)"></span>
         <button class="btn ghost zbtn editor-only" id="pgPrev" title="Página anterior">‹</button>
         <span class="lab" id="pgLabel">Pág 1/1</span>
         <button class="btn ghost zbtn editor-only" id="pgNext" title="Página siguiente">›</button>
@@ -941,11 +944,40 @@
     ov2d.innerHTML=out;
   }
 
+  // ===== UNDO / REDO =====
+  const MAX_UNDO=50;
+  let undoStack=[],redoStack=[];
+  function snap(){return JSON.parse(JSON.stringify(markers));}
+  function pushUndo(){
+    undoStack.push(snap());
+    if(undoStack.length>MAX_UNDO)undoStack.shift();
+    redoStack=[];
+  }
+  function undo(){
+    if(!undoStack.length)return;
+    redoStack.push(snap());
+    markers=undoStack.pop();
+    sel2=null;render2DOverlay();render2DBOM();saveNow2();
+  }
+  function redo(){
+    if(!redoStack.length)return;
+    undoStack.push(snap());
+    markers=redoStack.pop();
+    sel2=null;render2DOverlay();render2DBOM();saveNow2();
+  }
+  document.addEventListener("keydown",e=>{
+    if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")return;
+    if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
+    if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.key==="z"&&e.shiftKey))){e.preventDefault();redo();return;}
+    if(e.key==="Delete"&&sel2&&appMode==="2d"&&!readOnly){e.preventDefault();pushUndo();deleteMarker(sel2);}
+  });
+
   function nextMarkerId(){
     const used=new Set(markers.map(m=>+m.id).filter(n=>!isNaN(n)));
     let n=1;while(used.has(n))n++;return String(n);
   }
   function addMarker(x,y){
+    pushUndo();
     const nm={id:nextMarkerId(),x:clamp01(x),y:clamp01(y),text:"",parte:"",sap:""};
     markers.push(nm);
     markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
@@ -953,6 +985,7 @@
     select2(nm.id,true);
   }
   function deleteMarker(id){
+    pushUndo();
     markers=markers.filter(m=>m.id!==id);
     if(sel2===id)sel2=null;
     render2DOverlay();render2DBOM();saveNow2();
@@ -988,14 +1021,14 @@
         iParte.value=m.parte||"";iSap.value=m.sap||"";iDesc.value=m.text||"";
         iId.addEventListener("change",()=>{
           const v=(iId.value||"").trim();if(!v){iId.value=m.id;return;}
-          if(v!==m.id&&markers.some(x=>x!==m&&x.id===v)&&!confirm("Ya existe el globo \""+v+"\". ¿Usar el mismo número igual?")){iId.value=m.id;return;}
+          pushUndo();
           m.id=v;render2DOverlay();saveNow2();
         });
         iId.addEventListener("focus",()=>select2(m.id,false));
         iParte.addEventListener("input",()=>{m.parte=iParte.value;saveNow2();});
         iSap.addEventListener("input",()=>{m.sap=iSap.value;saveNow2();});
         iDesc.addEventListener("input",()=>{m.text=iDesc.value;saveNow2();});
-        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>select2(m.id,false)));
+        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>{pushUndo();select2(m.id,false);}));
         delx.addEventListener("click",e=>{e.stopPropagation();deleteMarker(m.id);});
         row.addEventListener("click",e=>{if(e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON")select2(m.id,false);});
       }
@@ -1029,7 +1062,7 @@
     const wasDrag=dragM,wasBalloon=downBalloon,wasPan=panStart;
     ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
     dragM=null;panStart=null;downBalloon=null;
-    if(moved>6){if(wasDrag)saveNow2();return;}
+    if(moved>6){if(wasDrag){pushUndo();saveNow2();}return;}
     if(wasBalloon){select2(wasBalloon,true);return;}
     if(!readOnly&&appMode==="2d"&&!wasDrag){const p=screenToImg(e.clientX,e.clientY);if(p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1)addMarker(p.x,p.y);return;}
     select2(null,false);
@@ -1553,6 +1586,8 @@
   $("#zoomOut").onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1/1.2,r.width/2,r.height/2);};
   $("#btnAuto").onclick=()=>autoFill2D(false);
   $("#btnDetect").onclick=reDetectBalloons;
+  $("#btnUndo").onclick=undo;
+  $("#btnRedo").onclick=redo;
   fileProj.addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
     try{const prj=JSON.parse(await readFileText(f));buildFromProject(prj);}catch(err){alert("Proyecto inválido.\n"+(err.message||err));}fileProj.value="";});
 
