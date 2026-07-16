@@ -12,7 +12,7 @@
      "lineas": [
       {
        "id": "linea-2",
-       "nombre": "Línea 2",
+       "nombre": "Línea 1",
        "maquinas": [
         {
          "id": "llenadora",
@@ -59,7 +59,7 @@
       },
       {
        "id": "linea-1",
-       "nombre": "Línea 1",
+       "nombre": "Línea 2",
        "maquinas": [
         {
          "id": "llenadora-l1",
