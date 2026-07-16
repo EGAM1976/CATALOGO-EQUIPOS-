@@ -906,10 +906,11 @@
     fit2D();render2DOverlay();
   }
   function updatePageUi(){$("#pgLabel").textContent="Pág "+pdfPage+"/"+pdfPages;}
+  let markersEdited=false; // true only when user manually changed something
   async function gotoPage(n){
     if(n<1||n>pdfPages||!pdfDoc)return;
-    if(markers.length && !confirm("Cambiar de página descartará los globos de esta página. ¿Continuar?"))return;
-    markers=[];sel2=null;pdfPage=n;
+    if(markersEdited && markers.length && !confirm("Tienes cambios manuales en esta página. ¿Descartar y cambiar de página?"))return;
+    markers=[];sel2=null;pdfPage=n;markersEdited=false;
     busy(true,"Renderizando página…");
     try{
       await renderPdfPage(n);updatePageUi();
@@ -977,7 +978,7 @@
     let n=1;while(used.has(n))n++;return String(n);
   }
   function addMarker(x,y){
-    pushUndo();
+    pushUndo();markersEdited=true;
     const nm={id:nextMarkerId(),x:clamp01(x),y:clamp01(y),text:"",parte:"",sap:""};
     markers.push(nm);
     markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
@@ -985,7 +986,7 @@
     select2(nm.id,true);
   }
   function deleteMarker(id){
-    pushUndo();
+    pushUndo();markersEdited=true;
     markers=markers.filter(m=>m.id!==id);
     if(sel2===id)sel2=null;
     render2DOverlay();render2DBOM();saveNow2();
@@ -1021,14 +1022,14 @@
         iParte.value=m.parte||"";iSap.value=m.sap||"";iDesc.value=m.text||"";
         iId.addEventListener("change",()=>{
           const v=(iId.value||"").trim();if(!v){iId.value=m.id;return;}
-          pushUndo();
+          pushUndo();markersEdited=true;
           m.id=v;render2DOverlay();saveNow2();
         });
         iId.addEventListener("focus",()=>select2(m.id,false));
         iParte.addEventListener("input",()=>{m.parte=iParte.value;saveNow2();});
         iSap.addEventListener("input",()=>{m.sap=iSap.value;saveNow2();});
         iDesc.addEventListener("input",()=>{m.text=iDesc.value;saveNow2();});
-        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>{pushUndo();select2(m.id,false);}));
+        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>{pushUndo();markersEdited=true;select2(m.id,false);}));
         delx.addEventListener("click",e=>{e.stopPropagation();deleteMarker(m.id);});
         row.addEventListener("click",e=>{if(e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON")select2(m.id,false);});
       }
@@ -1062,7 +1063,7 @@
     const wasDrag=dragM,wasBalloon=downBalloon,wasPan=panStart;
     ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
     dragM=null;panStart=null;downBalloon=null;
-    if(moved>6){if(wasDrag){pushUndo();saveNow2();}return;}
+    if(moved>6){if(wasDrag){pushUndo();markersEdited=true;saveNow2();}return;}
     if(wasBalloon){select2(wasBalloon,true);return;}
     if(!readOnly&&appMode==="2d"&&!wasDrag){const p=screenToImg(e.clientX,e.clientY);if(p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1)addMarker(p.x,p.y);return;}
     select2(null,false);
