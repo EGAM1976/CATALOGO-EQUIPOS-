@@ -103,7 +103,14 @@
          "id": "llenadora-l1",
          "nombre": "Llenadora",
          "marca": "KHS",
-         "proyecto": ""
+         "proyecto": "",
+         "despieces": [
+          {
+           "nombre": "sifu0008r00spa.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/sifu0008r00spa_2d.json"
+          }
+         ]
         }
        ]
       },
