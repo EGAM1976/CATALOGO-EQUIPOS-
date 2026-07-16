@@ -1091,15 +1091,18 @@
   }
   function extractCalloutLabels(textContent,vp){
     const items=(textContent&&textContent.items)||[];
-    const heights=items.map(it=>it.height||Math.hypot(it.transform[2],it.transform[3])||0).filter(h=>h>0.5);
-    const sorted=heights.slice().sort((a,b)=>a-b);
+    const allH=items.map(it=>it.height||Math.hypot(it.transform[2],it.transform[3])||0).filter(h=>h>0.5);
+    const sorted=allH.slice().sort((a,b)=>a-b);
     const med=sorted.length?sorted[Math.floor(sorted.length/2)]:10;
+    // Callout numbers: standalone 1-2 digit numbers that are larger than body text
+    // Use dual threshold: at least median*1.05 OR at least 10.5pt absolute (catches edge cases)
+    const minH=Math.min(med*1.05,10.5);
     const labels=[];
     items.forEach(it=>{
       const s=(it.str||"").trim();
       if(!/^\d{1,2}$/.test(s))return;
       const h=it.height||Math.hypot(it.transform[2],it.transform[3])||0;
-      if(h<med*1.1)return;
+      if(h<minH)return;
       const [px,py]=vp.convertToViewportPoint(it.transform[4],it.transform[5]);
       labels.push({num:s,x:px,y:py});
     });
@@ -1125,14 +1128,30 @@
     try{
       const raw=await detectImageBoxes(curPage,curViewport);
       const pageArea=curViewport.width*curViewport.height,minDim=Math.min(curViewport.width,curViewport.height);
-      let boxes=dedupeBoxes(raw).filter(b=>b.w>minDim*0.035&&b.h>minDim*0.035&&(b.w*b.h)<pageArea*0.8);
+      // Lower threshold to catch smaller part photos
+      let boxes=dedupeBoxes(raw).filter(b=>b.w>minDim*0.025&&b.h>minDim*0.025&&(b.w*b.h)<pageArea*0.8);
       boxes=sortReadingOrder(boxes);
+      const labels=extractCalloutLabels(pdfText,curViewport);
+      if(!boxes.length&&labels.length){
+        // No photos found but there ARE printed callout numbers → use those as balloon positions
+        markers=labels.map(l=>({
+          id:l.num,
+          x:clamp01(l.x/img2.w),
+          y:clamp01(l.y/img2.h),
+          text:"",parte:"",sap:""
+        })).sort((a,b)=>(+a.id||0)-(+b.id||0));
+        render2DOverlay();render2DBOM();
+        // Auto-fill legend right away
+        autoFill2D(true);
+        saveNow2();
+        countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+        return;
+      }
       if(!boxes.length){
         markers=[];render2DOverlay();render2DBOM();
         if(!silent)alert("No encontré fotos de repuestos claras en esta página. Toca sobre el dibujo para agregar globos a mano.");
         return;
       }
-      const labels=extractCalloutLabels(pdfText,curViewport);
       const assigned=assignBalloonIds(boxes,labels);
       markers=assigned.map(r=>({
         id:r.id,
@@ -1140,8 +1159,11 @@
         y:clamp01(((r.box.y0+r.box.y1)/2)/img2.h),
         text:"",parte:"",sap:""
       })).sort((a,b)=>(+a.id||0)-(+b.id||0));
-      render2DOverlay();render2DBOM();saveNow2();
-      if(!silent)alert("Detecté "+markers.length+" pieza(s). Verifica los números junto a cada foto y usa \"Auto-leyenda\" para traer la descripción de la tabla.");
+      render2DOverlay();render2DBOM();
+      // Auto-fill legend right away (no need to press the button)
+      autoFill2D(true);
+      saveNow2();
+      countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
     }catch(err){console.error(err);if(!silent)alert("No pude detectar piezas automáticamente en esta página.\n"+(err.message||err));}
   }
   function reDetectBalloons(){
@@ -1152,8 +1174,8 @@
   }
 
 
-  function autoFill2D(){
-    if(!pdfText||!pdfText.items){alert("No hay texto extraíble en esta página.");return;}
+  function autoFill2D(silent){
+    if(!pdfText||!pdfText.items){if(!silent)alert("No hay texto extraíble en esta página.");return;}
     const its=pdfText.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:Math.round(i.transform[5])}));
     const lines={};its.forEach(i=>{(lines[i.y]=lines[i.y]||[]).push(i);});
     const rows=Object.keys(lines).sort((a,b)=>b-a).map(k=>lines[k].sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
@@ -1161,7 +1183,7 @@
     rows.forEach(r=>{const m=r.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);if(m&&!map[m[1]])map[m[1]]={parte:m[2],text:m[3]};});
     let n=0;markers.forEach(mk=>{if(map[mk.id]){if(!mk.parte)mk.parte=map[mk.id].parte;if(!mk.text)mk.text=map[mk.id].text;n++;}});
     render2DBOM();saveNow2();
-    alert(n?("Rellené N° de parte y descripción de "+n+" pieza(s) desde la tabla del PDF. Revisa y agrega el código SAP."):"No pude emparejar filas de la tabla automáticamente en esta página.");
+    if(!silent)alert(n?("Rellené N° de parte y descripción de "+n+" pieza(s) desde la tabla del PDF. Revisa y agrega el código SAP."):"No pude emparejar filas de la tabla automáticamente en esta página.");
   }
 
   function build2DFromProject(prj){
@@ -1424,7 +1446,7 @@
   $("#pgNext").onclick=()=>gotoPage(pdfPage+1);
   $("#zoomIn").onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1.2,r.width/2,r.height/2);};
   $("#zoomOut").onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1/1.2,r.width/2,r.height/2);};
-  $("#btnAuto").onclick=autoFill2D;
+  $("#btnAuto").onclick=()=>autoFill2D(false);
   $("#btnDetect").onclick=reDetectBalloons;
   fileProj.addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
     try{const prj=JSON.parse(await readFileText(f));buildFromProject(prj);}catch(err){alert("Proyecto inválido.\n"+(err.message||err));}fileProj.value="";});
