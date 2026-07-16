@@ -109,6 +109,11 @@
            "nombre": "sifu0008r00spa.pdf",
            "tipo": "2D",
            "proyecto": "proyectos/sifu0008r00spa_2d.json"
+          },
+          {
+           "nombre": "117103_vol01_rs4_sport_3_flux_rtr_011820147_e.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/117103_vol01_rs4_sport_3_flux_rtr_011820147_e_2d.json"
           }
          ]
         }
