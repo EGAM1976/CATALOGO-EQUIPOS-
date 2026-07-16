@@ -72,6 +72,12 @@
          "nombre": "Encajonadora",
          "marca": "",
          "despieces": []
+        },
+        {
+         "id": "transporte-de-botellas",
+         "nombre": "Transporte de Botellas",
+         "marca": "",
+         "despieces": []
         }
        ]
       },
