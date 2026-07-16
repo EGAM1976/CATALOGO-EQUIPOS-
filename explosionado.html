@@ -1302,38 +1302,117 @@
     b.title=ok?("Subir a GitHub ("+GH.cfg.owner+"/"+GH.cfg.repo+")"):"Conecta tu GitHub primero (botón ⚙)";
   }
   $("#btnGHCfg").onclick=ghModal;
-  $("#btnSaveGH").onclick=async()=>{
-    if(!GH.ready()){ghModal();return;}
+  // ===== Guardar en GitHub con selector de máquina =====
+  async function loadCatalogFromGH(){
+    try{
+      const r=await GH.getJson("catalogo.json");
+      return r.data;
+    }catch(e){return null;}
+  }
+  function buildSelect(arr,placeholder){
+    let html='<option value="">'+esc(placeholder)+'</option>';
+    (arr||[]).forEach((item,i)=>{html+='<option value="'+i+'">'+esc(item.nombre)+'</option>';});
+    return html;
+  }
+  function showSaveModal(){
     const pay=buildPayload();
     if(!pay){alert("Primero carga un STP/STL o un PDF.");return;}
-    let name=prompt("Nombre del archivo dentro de /proyectos:",pay.file);
-    if(name===null)return;
-    name=name.trim().replace(/[^A-Za-z0-9._-]/g,"_");
-    if(!name){alert("Nombre inválido.");return;}
-    if(!/\.json$/i.test(name))name+=".json";
-    const path="proyectos/"+name;
-    busy(true,"Subiendo a GitHub…");
-    try{
-      const existed=await GH.getSha(path);
-      if(existed && !confirm("Ya existe "+path+" en el repositorio.\n\n¿Reemplazarlo con esta versión?")){busy(false);return;}
-      await GH.putFile(path,pay.json,(existed?"Actualizar ":"Agregar ")+path+" (desde el editor de despieces)");
-      const kb=Math.round(pay.json.length/1024);
-      const url=location.origin+location.pathname.replace(/[^/]*$/,"")+"explosionado.html?proyecto="+encodeURIComponent(path);
-      busy(false);
-      markClean();
-      alert("Listo — "+(existed?"actualizado":"subido")+" a GitHub ("+kb+" KB):\n"+path+"\n\n"+
-        "Enlace directo del despiece:\n"+url+"\n\n"+
-        "Falta el último paso: en el Editor de Catálogo, enlaza esta lámina a su máquina.\n"+
-        "(GitHub Pages tarda ~1 minuto en publicarlo.)");
-    }catch(e){
-      busy(false);
-      let hint="";
-      if(e.status===401)hint="\n\nEl token no es válido o expiró. Vuelve a conectarlo con el botón ⚙.";
-      else if(e.status===403)hint="\n\nEl token no tiene permiso de escritura (Contents: Read and write) sobre este repositorio.";
-      else if(e.status===404)hint="\n\nRevisa el usuario/repositorio configurado, o que el token tenga acceso a ese repositorio.";
-      alert("No se pudo subir a GitHub:\n"+e.message+hint);
-    }
-  };
+    if(!GH.ready()){ghModal();return;}
+    const tipo=appMode==="2d"?"2D":"3D";
+    const back=document.createElement("div");
+    back.style.cssText="position:fixed;inset:0;background:rgba(4,8,12,.75);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto";
+    back.innerHTML='<div style="background:#151f2a;border:1px solid #28353f;border-radius:16px;max-width:520px;width:100%;padding:22px;max-height:90vh;overflow:auto">'
+      +'<h3 style="font-family:\'Space Grotesk\',sans-serif;margin:0 0 14px;font-size:17px;color:#e8eef4">Guardar despiece en GitHub</h3>'
+      +'<div style="margin-bottom:12px"><label style="display:block;font-size:10px;color:#5f7386;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:600">Nombre del archivo</label>'
+      +'<input id="svName" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:8px;padding:9px;font-size:13px;font-family:\'JetBrains Mono\',monospace"/></div>'
+      +'<div style="margin-bottom:12px"><label style="display:block;font-size:10px;color:#5f7386;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:600">Nombre de la lámina</label>'
+      +'<input id="svLamina" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:8px;padding:9px;font-size:13px" placeholder="ej. Válvulas de llenado (pág. 5)"/></div>'
+      +'<div style="background:#20303e;border:1px solid #2f6fb0;border-radius:10px;padding:12px;margin-bottom:14px">'
+      +'<div style="font-size:11px;color:#8fd4ff;font-weight:600;margin-bottom:8px">¿A qué máquina pertenece? (opcional — si ya está enlazada, déjalo vacío)</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<select id="svPlanta" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:7px;padding:8px;font-size:12px"></select>'
+      +'<select id="svZona" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:7px;padding:8px;font-size:12px"><option value="">— zona —</option></select>'
+      +'<select id="svLinea" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:7px;padding:8px;font-size:12px"><option value="">— línea —</option></select>'
+      +'<select id="svMaquina" style="width:100%;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:7px;padding:8px;font-size:12px"><option value="">— máquina —</option></select>'
+      +'</div></div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<button id="svSave" class="btn primary" style="flex:1">☁ Guardar</button>'
+      +'<button id="svCancel" class="btn ghost">Cancelar</button></div>'
+      +'<div id="svMsg" style="margin-top:10px;font-size:12px;color:#8aa0b3;min-height:18px"></div>'
+      +'</div>';
+    document.body.appendChild(back);
+    const q=s=>back.querySelector(s);
+    q("#svName").value=pay.file.replace(/\.json$/i,"");
+    q("#svLamina").value=currentName||"";
+    // load catalog
+    let CAT=null;
+    loadCatalogFromGH().then(d=>{
+      CAT=d;
+      if(!d){q("#svPlanta").innerHTML='<option value="">No se pudo leer el catálogo</option>';return;}
+      q("#svPlanta").innerHTML=buildSelect(d.plantas,"— planta —");
+    });
+    q("#svPlanta").onchange=()=>{
+      q("#svZona").innerHTML='<option value="">— zona —</option>';
+      q("#svLinea").innerHTML='<option value="">— línea —</option>';
+      q("#svMaquina").innerHTML='<option value="">— máquina —</option>';
+      if(!CAT||!q("#svPlanta").value)return;
+      const pl=CAT.plantas[+q("#svPlanta").value];
+      q("#svZona").innerHTML=buildSelect(pl.zonas,"— zona —");
+    };
+    q("#svZona").onchange=()=>{
+      q("#svLinea").innerHTML='<option value="">— línea —</option>';
+      q("#svMaquina").innerHTML='<option value="">— máquina —</option>';
+      if(!CAT||!q("#svPlanta").value||!q("#svZona").value)return;
+      const zo=CAT.plantas[+q("#svPlanta").value].zonas[+q("#svZona").value];
+      q("#svLinea").innerHTML=buildSelect(zo.lineas,"— línea —");
+    };
+    q("#svLinea").onchange=()=>{
+      q("#svMaquina").innerHTML='<option value="">— máquina —</option>';
+      if(!CAT||!q("#svPlanta").value||!q("#svZona").value||!q("#svLinea").value)return;
+      const li=CAT.plantas[+q("#svPlanta").value].zonas[+q("#svZona").value].lineas[+q("#svLinea").value];
+      q("#svMaquina").innerHTML=buildSelect(li.maquinas,"— máquina —");
+    };
+    q("#svCancel").onclick=()=>back.remove();
+    back.addEventListener("click",e=>{if(e.target===back)back.remove();});
+    q("#svSave").onclick=async()=>{
+      let name=(q("#svName").value||"").trim().replace(/[^A-Za-z0-9._-]/g,"_");
+      if(!name){q("#svMsg").innerHTML='<span style="color:#ff5d5d">Escribe un nombre de archivo.</span>';return;}
+      if(!/\.json$/i.test(name))name+=".json";
+      const path="proyectos/"+name;
+      const lamina=(q("#svLamina").value||"").trim();
+      const wantLink=q("#svMaquina").value!=="";
+      q("#svSave").disabled=true;q("#svSave").textContent="Guardando…";
+      try{
+        // 1) save despiece
+        q("#svMsg").textContent="Subiendo despiece…";
+        const existed=await GH.getSha(path);
+        if(existed&&!confirm("Ya existe "+path+".\n\n¿Reemplazarlo?")){q("#svSave").disabled=false;q("#svSave").textContent="☁ Guardar";q("#svMsg").textContent="";return;}
+        await GH.putFile(path,pay.json,(existed?"Actualizar ":"Agregar ")+path);
+        // 2) link to machine if selected
+        if(wantLink&&CAT){
+          q("#svMsg").textContent="Enlazando al catálogo…";
+          const mq=CAT.plantas[+q("#svPlanta").value].zonas[+q("#svZona").value].lineas[+q("#svLinea").value].maquinas[+q("#svMaquina").value];
+          mq.despieces=mq.despieces||[];
+          const dup=mq.despieces.find(d=>d.proyecto===path);
+          if(dup){dup.nombre=lamina||dup.nombre;dup.tipo=tipo;}
+          else{mq.despieces.push({nombre:lamina||name,tipo:tipo,proyecto:path});}
+          await GH.putFile("catalogo.json",JSON.stringify(CAT,null,1),"Enlazar "+path+" a "+mq.nombre);
+        }
+        markClean();back.remove();
+        const kb=Math.round(pay.json.length/1024);
+        alert("Listo ("+kb+" KB).\n\n"
+          +(wantLink?"El despiece se guardó Y se enlazó a la máquina en el catálogo.":"El despiece se guardó en /proyectos."+(CAT?" Si necesitas enlazarlo a una máquina, hazlo desde el Editor de Catálogo.":""))
+          +"\n\nGitHub Pages tarda ~1 minuto en publicarlo.");
+      }catch(e){
+        q("#svSave").disabled=false;q("#svSave").textContent="☁ Guardar";
+        let hint="";
+        if(e.status===401)hint=" — el token expiró.";
+        else if(e.status===404)hint=" — revisa el repositorio.";
+        q("#svMsg").innerHTML='<span style="color:#ff5d5d">Error: '+esc(e.message)+hint+'</span>';
+      }
+    };
+  }
+  $("#btnSaveGH").onclick=showSaveModal;
   ghUpdateUi();
   fileInput.addEventListener("change",e=>{const fl=e.target.files;if(!fl||!fl.length)return;
     let append=false;
