@@ -171,7 +171,14 @@
          "id": "compresor-1",
          "nombre": "Compresor de aire",
          "marca": "",
-         "proyecto": ""
+         "proyecto": "",
+         "despieces": [
+          {
+           "nombre": "ENSAMBLE GENERAL.stl",
+           "tipo": "3D",
+           "proyecto": "proyectos/ENSAMBLE_GENERAL.json"
+          }
+         ]
         }
        ]
       },
