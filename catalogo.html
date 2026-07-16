@@ -27,7 +27,17 @@
 
   .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
 
-  header{display:flex;align-items:center;gap:13px;padding:6px 2px 18px}
+  header{display:flex;align-items:center;gap:13px;padding:6px 2px 18px;flex-wrap:wrap}
+  .admin-btns{display:flex;gap:8px;align-items:center}
+  .abtn{font-family:inherit;font-size:12px;font-weight:600;color:#e8eef4;background:#1b2733;border:1px solid #28353f;border-radius:9px;padding:8px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;transition:.15s;white-space:nowrap}
+  .abtn:hover{border-color:#3a4a58;background:#22303d}
+  .editor-btn{background:linear-gradient(180deg,#49d38f,#2fb877);color:#052616;border-color:#1f9860}
+  .editor-btn:hover{background:linear-gradient(180deg,#57dd99,#37c380)}
+  .explo-btn{background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border-color:#e98a12}
+  .explo-btn:hover{background:linear-gradient(180deg,#ffb75c,#ffa634)}
+  .lock-btn{padding:8px 10px;font-size:14px}
+  .unlock-btn{background:transparent;border:1px solid #28353f;color:#5f7386;padding:7px 12px;font-size:11.5px}
+  .unlock-btn:hover{border-color:#ff9e2c;color:#ff9e2c}
   .logo{width:40px;height:40px;border-radius:11px;flex:none;position:relative;
     background:radial-gradient(120% 120% at 30% 20%,#ffb455,#ff9e2c 45%,#c96f00);
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 4px 16px rgba(255,158,44,.35)}
@@ -166,6 +176,12 @@
       <h1 class="disp" id="hTitle">Catálogo de Despieces</h1>
       <p id="hSub">ACL · Repuestos por máquina</p>
     </div>
+    <div class="admin-btns" id="adminBtns" style="display:none">
+      <a class="abtn editor-btn" id="btnGoEditor" title="Organizar plantas, zonas, líneas y máquinas">Editor de Catálogo</a>
+      <a class="abtn explo-btn" id="btnGoExplo" title="Crear o editar despieces (PDF / STP / STL)">Vista Explosionada</a>
+      <button class="abtn lock-btn" id="btnLockAdmin" title="Cerrar sesión de administrador">🔒</button>
+    </div>
+    <button class="abtn unlock-btn" id="btnUnlockAdmin" title="Acceso de administrador">🔑 Admin</button>
     <div class="search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
       <input id="q" type="search" placeholder="Buscar máquina… (ej. llenadora)" autocomplete="off" />
@@ -369,6 +385,49 @@
   function addSep(el){const s=document.createElement("span");s.className="sep";s.textContent="›";el.appendChild(s);}
 
   function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+  // ===== ADMIN (segunda contraseña, diferente) =====
+  const ADMIN_HASH="64e48f3bf07307f751c02213b95e0b5e1e8351597dfbe12bce5cbf115591ce3f";
+  // Contraseña admin inicial: ADMIN2026  (¡CÁMBIALA! usa calcHash('tu_clave') en la consola)
+  const ADMIN_KEY="acl:admin";
+  const ADMIN_DAYS=7;
+
+  async function sha256a(str){
+    const buf=new TextEncoder().encode(str);
+    const hb=await crypto.subtle.digest("SHA-256",buf);
+    return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  function isAdmin(){
+    try{const s=JSON.parse(localStorage.getItem(ADMIN_KEY)||"{}");return s.h===ADMIN_HASH&&Date.now()<s.exp;}catch(e){return false;}
+  }
+  function showAdminUI(on){
+    $("#adminBtns").style.display=on?"flex":"none";
+    $("#btnUnlockAdmin").style.display=on?"none":"";
+  }
+  function setAdminLinks(){
+    const base=location.href.replace(/[^/]*$/,"");
+    $("#btnGoEditor").href=base+"catalogo_editor.html";
+    $("#btnGoExplo").href=base+"explosionado.html";
+  }
+
+  if(isAdmin()){showAdminUI(true);setAdminLinks();}
+
+  $("#btnUnlockAdmin").onclick=async function(){
+    const p=prompt("Contraseña de administrador:");
+    if(p===null)return;
+    const h=await sha256a(p);
+    if(h===ADMIN_HASH){
+      try{localStorage.setItem(ADMIN_KEY,JSON.stringify({h:ADMIN_HASH,exp:Date.now()+ADMIN_DAYS*86400000}));}catch(e){}
+      showAdminUI(true);setAdminLinks();
+    }else{
+      alert("Contraseña de administrador incorrecta.");
+    }
+  };
+  $("#btnLockAdmin").onclick=function(){
+    try{localStorage.removeItem(ADMIN_KEY);}catch(e){}
+    showAdminUI(false);
+  };
 })();
 </script>
 </body>
