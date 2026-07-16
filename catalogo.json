@@ -122,7 +122,14 @@
       {
        "id": "linea-4",
        "nombre": "Linea 4",
-       "maquinas": []
+       "maquinas": [
+        {
+         "id": "llenadora",
+         "nombre": "llenadora",
+         "marca": "",
+         "despieces": []
+        }
+       ]
       },
       {
        "id": "linea-5",
