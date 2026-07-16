@@ -41,7 +41,14 @@
          "id": "despaletizadora",
          "nombre": "Despaletizadora",
          "marca": "Krones",
-         "proyecto": ""
+         "proyecto": "",
+         "despieces": [
+          {
+           "nombre": "Conceptos Básicos de la Programación Orientada a objetos. (3).pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/Conceptos_B_sicos_de_la_Programaci_n_Orientada_a_objetos.__3__2d.json"
+          }
+         ]
         },
         {
          "id": "desencajonadora",
