@@ -142,6 +142,8 @@
   .item .rowtop{display:flex;align-items:center;justify-content:space-between;gap:6px}
   .item .delx{flex:none;background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer}
   .item .delx:hover{color:#ff8080;border-color:#5a2a2a;background:#241414}
+  .item .dupx{flex:none;background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer}
+  .item .dupx:hover{color:var(--accent);border-color:#4a370f;background:#241a08}
   .item .stat-line{display:flex;gap:8px;font-size:11.5px;color:var(--text);margin-top:2px}
   .item .stat-line .pn{font-family:"JetBrains Mono";color:var(--accent)}
   .item .idedit{font-family:"JetBrains Mono";font-weight:600;font-size:12px;color:var(--accent);border-radius:6px;padding:2px 6px;border:1px solid #4a370f;width:52px;text-align:center}
@@ -1010,7 +1012,7 @@
         row.addEventListener("click",()=>select2(m.id,false));
       }else{
         row.innerHTML='<div class="fields">'
-          +'<div class="rowtop"><input class="id mono idedit" style="background:#241a08;border-color:#4a370f" value="'+escapeAttr(m.id)+'" /><button class="delx" title="Eliminar globo">✕</button></div>'
+          +'<div class="rowtop"><input class="id mono idedit" style="background:#241a08;border-color:#4a370f" value="'+escapeAttr(m.id)+'" /><button class="dupx" title="Duplicar este globo (mismo número)">📋</button><button class="delx" title="Eliminar globo">✕</button></div>'
           +'<div class="r2">'
           +'<div class="fld"><span class="fld-lbl">N° de parte</span><input class="sm parte" type="text" placeholder="p.ej. 27591"/></div>'
           +'<div class="fld"><span class="fld-lbl">Código SAP</span><input class="sm sap" type="text" placeholder="p.ej. 100234567"/></div>'
@@ -1018,8 +1020,17 @@
           +'<textarea class="desc" rows="1" placeholder="Descripción de la pieza…"></textarea>'
           +'</div>';
         const iId=row.querySelector("input.idedit");
-        const iParte=row.querySelector("input.parte"),iSap=row.querySelector("input.sap"),iDesc=row.querySelector("textarea.desc"),delx=row.querySelector(".delx");
+        const iParte=row.querySelector("input.parte"),iSap=row.querySelector("input.sap"),iDesc=row.querySelector("textarea.desc"),delx=row.querySelector(".delx"),dupx=row.querySelector(".dupx");
         iParte.value=m.parte||"";iSap.value=m.sap||"";iDesc.value=m.text||"";
+        dupx.addEventListener("click",e=>{
+          e.stopPropagation();
+          pushUndo();markersEdited=true;
+          const offset=0.03;
+          const nm={id:m.id,x:clamp01(m.x+offset),y:clamp01(m.y+offset),text:m.text,parte:m.parte,sap:m.sap};
+          markers.push(nm);
+          render2DOverlay();render2DBOM();saveNow2();
+          select2(nm.id,true);
+        });
         iId.addEventListener("change",()=>{
           const v=(iId.value||"").trim();if(!v){iId.value=m.id;return;}
           pushUndo();markersEdited=true;
