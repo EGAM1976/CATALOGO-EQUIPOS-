@@ -87,6 +87,19 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 .resizer{height:4px;background:var(--line);cursor:ns-resize;flex:none}
 .resizer:hover{background:var(--accent)}
 
+/* Tabs */
+.tabs{display:flex;border-bottom:2px solid var(--line);background:var(--panel);flex:none;overflow-x:auto}
+.tab{font-family:inherit;font-size:12px;font-weight:600;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;white-space:nowrap;transition:.15s;margin-bottom:-2px}
+.tab:hover{color:var(--text);background:var(--panel-2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--panel-2)}
+.tabContent{flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden}
+.tabContent.active{display:flex}
+.searchResult{padding:10px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.12s}
+.searchResult:hover{background:var(--panel-2);border-color:var(--accent)}
+.searchResult .sr-title{font-weight:700;font-size:13px;margin-bottom:3px}
+.searchResult .sr-path{font-size:11px;color:var(--faint)}
+.searchResult .sr-code{font-family:"JetBrains Mono",monospace;color:#8fd4ff;font-size:12px}
+
 .hidden{display:none!important}
 @media(max-width:700px){.tree{width:220px} .partsbar{height:180px}}
 </style>
@@ -148,36 +161,86 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       <div id="treeContent"></div>
     </div>
 
-    <!-- Center: viewer + bottom table -->
+    <!-- Center: tabs + viewer + bottom table -->
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-      <div class="viewer" id="viewer">
-        <div class="viewer-toolbar" id="viewToolbar">
-          <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
-          <button class="abtn" id="vZoomOut">−</button>
-          <button class="abtn" id="vZoomIn">+</button>
-          <button class="abtn" id="vFit">Encuadrar</button>
-          <button class="abtn" id="vPrev">‹</button>
-          <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
-          <button class="abtn" id="vNext">›</button>
-          <button class="abtn" id="vCsv">⬇ CSV</button>
-        </div>
-        <div class="viewarea" id="viewarea">
-          <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
-        </div>
-        <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
+      <!-- Tabs -->
+      <div class="tabs" id="tabsBar">
+        <button class="tab active" data-tab="piezas">📋 Catálogo de piezas</button>
+        <button class="tab" data-tab="electrico">⚡ Esquema eléctrico</button>
+        <button class="tab" data-tab="docs">📖 Documentación</button>
+        <button class="tab" data-tab="busqueda">🔍 Búsqueda</button>
       </div>
-      <div class="resizer" id="resizer"></div>
-      <div class="partsbar" id="partsbar">
-        <div class="partsbar-head">
-          <h3 class="disp">Repuestos</h3>
-          <span class="pcount" id="pcount"></span>
-          <span class="spacer"></span>
+
+      <!-- Tab: Catálogo de piezas -->
+      <div class="tabContent active" id="tabPiezas">
+        <div class="viewer" id="viewer">
+          <div class="viewer-toolbar" id="viewToolbar">
+            <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
+            <button class="abtn" id="vZoomOut">−</button>
+            <button class="abtn" id="vZoomIn">+</button>
+            <button class="abtn" id="vFit">Encuadrar</button>
+            <button class="abtn" id="vPrev">‹</button>
+            <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
+            <button class="abtn" id="vNext">›</button>
+            <button class="abtn" id="vCsv">⬇ CSV</button>
+          </div>
+          <div class="viewarea" id="viewarea">
+            <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
+          </div>
+          <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
         </div>
-        <div class="ptable-wrap">
-          <table class="ptable">
-            <thead><tr><th style="width:60px">Pos.</th><th style="width:140px">N° de artículo</th><th>Denominación</th><th style="width:120px">Código SAP</th></tr></thead>
-            <tbody id="ptbody"></tbody>
-          </table>
+        <div class="resizer" id="resizer"></div>
+        <div class="partsbar" id="partsbar">
+          <div class="partsbar-head">
+            <h3 class="disp">Repuestos</h3>
+            <span class="pcount" id="pcount"></span>
+            <span class="spacer"></span>
+          </div>
+          <div class="ptable-wrap">
+            <table class="ptable">
+              <thead><tr><th style="width:60px">Pos.</th><th style="width:140px">N° de artículo</th><th>Denominación</th><th style="width:120px">Código SAP</th></tr></thead>
+              <tbody id="ptbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Esquema eléctrico -->
+      <div class="tabContent" id="tabElectrico">
+        <div class="viewer">
+          <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="elecTitle">Esquemas eléctricos</span>
+            <button class="abtn" id="eZoomOut">−</button><button class="abtn" id="eZoomIn">+</button><button class="abtn" id="eFit">Encuadrar</button>
+            <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button>
+          </div>
+          <div class="viewarea" id="elecViewarea">
+            <div class="pan" id="elecPan"><img id="elecImg" alt=""/></div>
+          </div>
+          <div class="viewer-empty" id="elecEmpty">Selecciona una máquina del árbol. Si tiene esquemas eléctricos asignados, se mostrarán aquí.</div>
+        </div>
+      </div>
+
+      <!-- Tab: Documentación -->
+      <div class="tabContent" id="tabDocs">
+        <div class="viewer">
+          <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="docTitle">Documentación técnica</span>
+            <button class="abtn" id="dZoomOut">−</button><button class="abtn" id="dZoomIn">+</button><button class="abtn" id="dFit">Encuadrar</button>
+            <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button>
+          </div>
+          <div class="viewarea" id="docViewarea">
+            <div class="pan" id="docPan"><img id="docImg" alt=""/></div>
+          </div>
+          <div class="viewer-empty" id="docEmpty">Selecciona una máquina del árbol. Si tiene manuales o documentos asignados, se mostrarán aquí.</div>
+        </div>
+      </div>
+
+      <!-- Tab: Búsqueda -->
+      <div class="tabContent" id="tabBusqueda">
+        <div style="padding:20px;flex:1;overflow:auto">
+          <div style="max-width:600px;margin:0 auto">
+            <h2 class="disp" style="font-size:18px;margin-bottom:12px">Búsqueda global</h2>
+            <input type="search" id="searchAll" placeholder="Escribe N° de parte, código, descripción o nombre de máquina…" style="width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;margin-bottom:16px"/>
+            <div id="searchResults" style="font-size:13px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -395,6 +458,85 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var txt=(tr.textContent||"").toLowerCase();
       tr.style.display=txt.indexOf(q)>=0?"":"none";
     });
+  });
+
+  // ---- Tabs ----
+  document.querySelectorAll(".tab").forEach(function(tab){
+    tab.onclick=function(){
+      document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active");});
+      document.querySelectorAll(".tabContent").forEach(function(c){c.classList.remove("active");});
+      tab.classList.add("active");
+      var target=tab.getAttribute("data-tab");
+      var map={piezas:"tabPiezas",electrico:"tabElectrico",docs:"tabDocs",busqueda:"tabBusqueda"};
+      if(map[target])$("#"+map[target]).classList.add("active");
+    };
+  });
+
+  // ---- Full search (Búsqueda tab) ----
+  var allParts=[];
+  function buildSearchIndex(){
+    allParts=[];
+    if(!DATA)return;
+    (DATA.plantas||[]).forEach(function(pl){
+      (pl.zonas||[]).forEach(function(zo){
+        (zo.lineas||[]).forEach(function(li){
+          (li.maquinas||[]).forEach(function(mq){
+            var path=pl.nombre+" › "+zo.nombre+" › "+li.nombre+" › "+mq.nombre;
+            var desps=mq.despieces||[];
+            if(mq.proyecto&&!desps.length)desps=[{nombre:"Despiece",proyecto:mq.proyecto}];
+            desps.forEach(function(d){
+              allParts.push({nombre:d.nombre||"Despiece",path:path,proyecto:d.proyecto,mq:mq,desp:d,tipo:d.tipo||""});
+            });
+            // Also add machine-level docs and schematics
+            if(mq.electricos)(mq.electricos).forEach(function(e){
+              allParts.push({nombre:e.nombre||"Esquema eléctrico",path:path,proyecto:e.archivo,mq:mq,tipo:"electrico"});
+            });
+            if(mq.documentos)(mq.documentos).forEach(function(dc){
+              allParts.push({nombre:dc.nombre||"Documento",path:path,proyecto:dc.archivo,mq:mq,tipo:"doc"});
+            });
+          });
+        });
+      });
+    });
+  }
+
+  $("#searchAll").addEventListener("input",function(){
+    var q=this.value.toLowerCase().trim();
+    var results=$("#searchResults");
+    results.innerHTML="";
+    if(!q||q.length<2){results.innerHTML='<div style="color:var(--faint)">Escribe al menos 2 caracteres.</div>';return;}
+    if(!allParts.length)buildSearchIndex();
+    // Also search in loaded project markers
+    var found=[];
+    allParts.forEach(function(item){
+      var txt=(item.nombre+" "+item.path+" "+(item.tipo||"")).toLowerCase();
+      if(txt.indexOf(q)>=0)found.push(item);
+    });
+    // Search in current parts table too
+    vMarkers.forEach(function(m){
+      var txt=(m.id+" "+m.parte+" "+m.text+" "+m.sap).toLowerCase();
+      if(txt.indexOf(q)>=0)found.push({nombre:"Pos. "+m.id+" — "+(m.parte||"")+" "+(m.text||""),path:curProject?(curProject.name||""):"",tipo:"pieza",marker:m});
+    });
+    if(!found.length){results.innerHTML='<div style="color:var(--faint)">Sin resultados para "'+esc(q)+'".</div>';return;}
+    found.slice(0,50).forEach(function(item){
+      var div=document.createElement("div");div.className="searchResult";
+      var tipoChip=item.tipo==="electrico"?"⚡ ":item.tipo==="doc"?"📖 ":item.tipo==="pieza"?"🔧 ":"📋 ";
+      div.innerHTML='<div class="sr-title">'+tipoChip+esc(item.nombre)+'</div>'
+        +'<div class="sr-path">'+esc(item.path)+'</div>'
+        +(item.marker?'<div class="sr-code">'+esc(item.marker.parte)+'</div>':"");
+      div.onclick=function(){
+        if(item.marker){
+          // Switch to piezas tab and highlight
+          document.querySelectorAll(".tab")[0].click();
+          selectPart(item.marker.id);
+        }else if(item.proyecto){
+          document.querySelectorAll(".tab")[0].click();
+          loadDespiece(item.desp||item,item.mq||{nombre:""});
+        }
+      };
+      results.appendChild(div);
+    });
+    if(found.length>50)results.innerHTML+='<div style="color:var(--faint);margin-top:10px">Mostrando 50 de '+found.length+' resultados.</div>';
   });
 
 })();
