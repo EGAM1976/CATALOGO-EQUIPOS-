@@ -132,6 +132,7 @@
   .item .meta{font-size:10.5px;color:var(--faint);margin-top:3px;font-family:"JetBrains Mono";white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   .item .r2{display:flex;gap:6px;margin-top:6px}
+  .item .fieldgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
   .item .r2 .fld{flex:1;min-width:0}
   .item .r2 label,.item .fld-lbl{display:block;font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-weight:600}
   .item input.sm{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:"JetBrains Mono"}
@@ -395,6 +396,27 @@
 <script>
 "use strict";
 (function(){
+
+  // Full spare-part field definitions
+  const PART_FIELDS=[
+    {key:"pos",label:"Pos",w:"50px",mono:true},
+    {key:"cantPos",label:"Cant Pos",w:"60px"},
+    {key:"um",label:"UM",w:"50px"},
+    {key:"indUso",label:"Ind Uso",w:"70px"},
+    {key:"parte",label:"N° Parte inicial",w:"120px",mono:true,color:"#CC0033"},
+    {key:"parteSuc",label:"N° Parte sucesor",w:"120px",mono:true},
+    {key:"sap1",label:"SAP 1 (Original)",w:"120px",mono:true,color:"#0066CC"},
+    {key:"sap2",label:"SAP 2 (Nacional)",w:"120px",mono:true,color:"#28a745"},
+    {key:"denomFab",label:"Denominación Fabricante",w:"auto"},
+    {key:"denomCom",label:"Denominación comercial",w:"auto"},
+    {key:"freqMtto",label:"Frecuencia Mtto",w:"100px"},
+    {key:"cantMtto",label:"Cant Mtto",w:"70px"},
+    {key:"sapEquipo",label:"SAP Equipo",w:"110px",mono:true},
+    {key:"componente",label:"Componente",w:"120px"},
+  ];
+  function emptyPart(){const o={};PART_FIELDS.forEach(f=>o[f.key]="");return o;}
+  function copyPartFields(src){const o={};PART_FIELDS.forEach(f=>o[f.key]=src[f.key]||"");return o;}
+
   const OCCT_BASE="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/";
   const OCCT_SRC =OCCT_BASE+"occt-import-js.js";
   const $=s=>document.querySelector(s);
@@ -925,7 +947,7 @@
       if(!img2.src)return null;
       const prj={v:1,type:"2d",name:currentName,createdAt:new Date().toISOString().slice(0,10),
         image:img2.src,imgW:img2.w,imgH:img2.h,
-        markers:markers.map(m=>({id:m.id,x:r4(m.x),y:r4(m.y),text:m.text,parte:m.parte,sap:m.sap}))};
+        markers:markers.map(function(m){var o={id:m.id,x:r4(m.x),y:r4(m.y)};PART_FIELDS.forEach(function(f){o[f.key]=m[f.key]||"";});return o;})};
       return {json:JSON.stringify(prj),file:(currentName.replace(/\.(pdf|json)$/i,"")||"despiece")+"_2d.json"};
     }
     if(!parts.length)return null;
@@ -1083,7 +1105,7 @@
   }
   function addMarker(x,y){
     pushUndo();markersEdited=true;
-    const nm={id:nextMarkerId(),x:clamp01(x),y:clamp01(y),text:"",parte:"",sap:""};
+    const nm=Object.assign({id:nextMarkerId(),x:clamp01(x),y:clamp01(y)},emptyPart());
     markers.push(nm);
     markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
     render2DOverlay();render2DBOM();saveNow2();
@@ -1128,7 +1150,7 @@
           e.stopPropagation();
           pushUndo();markersEdited=true;
           const offset=0.03;
-          const nm={id:m.id,x:clamp01(m.x+offset),y:clamp01(m.y+offset),text:m.text,parte:m.parte,sap:m.sap};
+          const nm=Object.assign({id:m.id,x:clamp01(m.x+offset),y:clamp01(m.y+offset)},copyPartFields(m));
           markers.push(nm);
           render2DOverlay();render2DBOM();saveNow2();
           select2(nm.id,true);
@@ -1139,10 +1161,6 @@
           m.id=v;render2DOverlay();saveNow2();
         });
         iId.addEventListener("focus",()=>select2(m.id,false));
-        iParte.addEventListener("input",()=>{m.parte=iParte.value;saveNow2();});
-        iSap.addEventListener("input",()=>{m.sap=iSap.value;saveNow2();});
-        iDesc.addEventListener("input",()=>{m.text=iDesc.value;saveNow2();});
-        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>{pushUndo();markersEdited=true;select2(m.id,false);}));
         delx.addEventListener("click",e=>{e.stopPropagation();deleteMarker(m.id);});
         row.addEventListener("click",e=>{if(e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON")select2(m.id,false);});
       }
@@ -1399,7 +1417,7 @@
           id:r.id,
           x:clamp01(((r.box.x0+r.box.x1)/2)/img2.w),
           y:clamp01(((r.box.y0+r.box.y1)/2)/img2.h),
-          text:"",parte:"",sap:""
+          ...emptyPart()
         })).sort((a,b)=>(+a.id||0)-(+b.id||0));
         render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
         countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
@@ -1410,7 +1428,7 @@
       if(drawLabels.length){
         const seen=new Set();markers=[];
         drawLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
-          markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
+          markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),...emptyPart()});
         });
         markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
         render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
@@ -1428,7 +1446,7 @@
         if(ocrLabels.length){
           const seen=new Set();
           ocrLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
-            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
+            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),...emptyPart()});
           });
           markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
           render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
@@ -1446,7 +1464,7 @@
         if(ocrLabels.length){
           const seen=new Set();markers=[];
           ocrLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
-            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
+            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),...emptyPart()});
           });
           markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
           render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
@@ -1546,7 +1564,7 @@
       const entry=map[mk.id];
       if(entry){
         if(!mk.parte&&entry.parte){mk.parte=entry.parte;n++;}
-        if(!mk.text&&entry.text)mk.text=entry.text;
+        if(!mk.denomFab&&entry.text)mk.denomFab=entry.text;
       }
     });
     render2DBOM();saveNow2();
@@ -1793,8 +1811,8 @@
   function exportCSV(){
     let csv;
     if(appMode==="2d"){
-      csv="ID,N_Parte,Codigo_SAP,Descripcion\n";
-      markers.forEach(m=>{csv+=[m.id,csvCell(m.parte),csvCell(m.sap),csvCell(m.text)].join(",")+"\n";});
+      csv="ID,"+PART_FIELDS.map(function(f){return f.label.replace(/,/g," ");}).join(",")+"\n";
+      markers.forEach(m=>{csv+=m.id+","+PART_FIELDS.map(function(f){return csvCell(m[f.key]);}).join(",")+"\n";});
     }else{
       csv="ID,N_Parte,Codigo_SAP,Descripcion,Color,Malla\n";
       parts.forEach(p=>{csv+=[p.id,csvCell(p.parte),csvCell(p.sap),csvCell(p.text),p.hex,csvCell(p.name)].join(",")+"\n";});
