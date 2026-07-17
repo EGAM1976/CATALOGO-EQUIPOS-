@@ -888,21 +888,21 @@
       }else{
         row.innerHTML=`<div class="sw" style="background:${p.hex}"></div>
           <div class="fields">
-            <div class="rowtop"><div class="id mono">${p.id}</div><button class="delx" title="Eliminar pieza de la leyenda">✕</button></div>
-            <div class="r2">
-              <div class="fld"><span class="fld-lbl">N° de parte</span><input class="sm parte" type="text" placeholder="p.ej. 27591"/></div>
-              <div class="fld"><span class="fld-lbl">Código SAP</span><input class="sm sap" type="text" placeholder="p.ej. 100234567"/></div>
-            </div>
-            <textarea class="desc" rows="1" placeholder="Descripción de la pieza…"></textarea>
+            <div class="rowtop"><div class="id mono">${p.id}</div><button class="delx" title="Eliminar">✕</button></div>
+            <div class="fieldgrid"></div>
             <div class="meta">${metaTxt}</div>
           </div>`;
-        const iParte=row.querySelector("input.parte"),iSap=row.querySelector("input.sap"),iDesc=row.querySelector("textarea.desc"),delx=row.querySelector(".delx");
-        iParte.value=p.parte||"";iSap.value=p.sap||"";iDesc.value=p.text||"";
-        iParte.addEventListener("input",()=>{p.parte=iParte.value;saveNow();});
-        iSap.addEventListener("input",()=>{p.sap=iSap.value;saveNow();});
-        iDesc.addEventListener("input",()=>{p.text=iDesc.value;saveNow();});
-        [iParte,iSap,iDesc].forEach(el=>el.addEventListener("focus",()=>select(p.id,false)));
-        delx.addEventListener("click",ev=>{ev.stopPropagation();if(confirm("¿Quitar "+p.id+" de la leyenda? (la pieza sigue visible en 3D, solo se borra su ficha)")){p.text="";p.parte="";p.sap="";saveNow();renderBOM();}});
+        const fg=row.querySelector(".fieldgrid"),delx=row.querySelector(".delx");
+        PART_FIELDS.forEach(function(f){
+          const d=document.createElement("div");d.className="fld";
+          d.innerHTML='<span class="fld-lbl">'+f.label+'</span><input class="sm pf" data-key="'+f.key+'" type="text" placeholder="…"/>';
+          const inp=d.querySelector("input");
+          inp.value=p[f.key]||"";
+          inp.addEventListener("input",function(){p[f.key]=inp.value;saveNow();});
+          inp.addEventListener("focus",function(){select(p.id,false);});
+          fg.appendChild(d);
+        });
+        delx.addEventListener("click",ev=>{ev.stopPropagation();if(confirm("¿Quitar "+p.id+"?")){PART_FIELDS.forEach(function(f){p[f.key]="";});saveNow();renderBOM();}});
         row.addEventListener("click",e=>{if(e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON")select(p.id,false);});
       }
       listEl.appendChild(row);
@@ -1136,16 +1136,20 @@
         row.addEventListener("click",()=>select2(m.id,false));
       }else{
         row.innerHTML='<div class="fields">'
-          +'<div class="rowtop"><input class="id mono idedit" style="background:#fce8eb;border-color:#CC0033;color:#CC0033" value="'+escapeAttr(m.id)+'" /><button class="dupx" title="Duplicar este globo (mismo número)">📋</button><button class="delx" title="Eliminar globo">✕</button></div>'
-          +'<div class="r2">'
-          +'<div class="fld"><span class="fld-lbl">N° de parte</span><input class="sm parte" type="text" placeholder="p.ej. 27591"/></div>'
-          +'<div class="fld"><span class="fld-lbl">Código SAP</span><input class="sm sap" type="text" placeholder="p.ej. 100234567"/></div>'
-          +'</div>'
-          +'<textarea class="desc" rows="1" placeholder="Descripción de la pieza…"></textarea>'
+          +'<div class="rowtop"><input class="id mono idedit" style="background:#fce8eb;border-color:#CC0033;color:#CC0033" value="'+escapeAttr(m.id)+'" /><button class="dupx" title="Duplicar">📋</button><button class="delx" title="Eliminar">✕</button></div>'
+          +'<div class="fieldgrid"></div>'
           +'</div>';
         const iId=row.querySelector("input.idedit");
-        const iParte=row.querySelector("input.parte"),iSap=row.querySelector("input.sap"),iDesc=row.querySelector("textarea.desc"),delx=row.querySelector(".delx"),dupx=row.querySelector(".dupx");
-        iParte.value=m.parte||"";iSap.value=m.sap||"";iDesc.value=m.text||"";
+        const fg=row.querySelector(".fieldgrid"),delx=row.querySelector(".delx"),dupx=row.querySelector(".dupx");
+        PART_FIELDS.forEach(function(f){
+          const d=document.createElement("div");d.className="fld";
+          d.innerHTML='<span class="fld-lbl">'+f.label+'</span><input class="sm pf" data-key="'+f.key+'" type="text" placeholder="…"/>';
+          const inp=d.querySelector("input");
+          inp.value=m[f.key]||"";
+          inp.addEventListener("input",function(){m[f.key]=inp.value;saveNow2();});
+          inp.addEventListener("focus",function(){pushUndo();markersEdited=true;select2(m.id,false);});
+          fg.appendChild(d);
+        });
         dupx.addEventListener("click",e=>{
           e.stopPropagation();
           pushUndo();markersEdited=true;
