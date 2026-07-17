@@ -147,6 +147,11 @@
            "nombre": "ENSAMBLE GENERAL.stl",
            "tipo": "3D",
            "proyecto": "proyectos/ENSAMBLE_GENERAL.json"
+          },
+          {
+           "nombre": "srve0149r00spa MANUAL DE PARTE LLENADORA C5.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/srve0149r00spa_MANUAL_DE_PARTE_LLENADORA_C5_2d.json"
           }
          ]
         }
