@@ -124,6 +124,11 @@
            "nombre": "MAUSE.stp",
            "tipo": "3D",
            "proyecto": "proyectos/MAUSE.json"
+          },
+          {
+           "nombre": "S2735WF_SpareParts_ESP.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/S2735WF_SpareParts_ESP_2d.json"
           }
          ]
         }
