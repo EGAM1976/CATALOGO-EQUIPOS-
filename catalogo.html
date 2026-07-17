@@ -119,14 +119,22 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 <body>
 
 <!-- Auth gate (same as before) -->
-<div id="authGate" style="position:fixed;inset:0;z-index:9999;background:#fff;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
-<div style="max-width:380px;width:100%;text-align:center">
-<div style="width:56px;height:56px;border-radius:14px;margin:0 auto 18px;position:relative;background:#E4002B;box-shadow:0 4px 18px rgba(228,0,43,.25)"><div style="position:absolute;inset:0;margin:auto;width:22px;height:22px;background:#fff;clip-path:polygon(0 20%,50% 0,100% 20%,100% 45%,50% 65%,0 45%)"></div></div>
-<h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#1a1a1a;font-size:20px;margin:0 0 4px">Catálogo de Repuestos</h2>
-<p style="color:#E4002B;font-size:13px;font-weight:600;margin:0 0 4px">ARCA CONTINENTAL LINDLEY</p>
-<p style="color:#8c95a0;font-size:12px;margin:0 0 22px">Acceso restringido</p>
-<input id="authPass" type="password" placeholder="Contraseña" style="width:100%;background:#f5f6f8;border:1px solid #d4d8dd;color:#1a1a1a;border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;text-align:center"/>
-<button id="authBtn" style="margin-top:12px;width:100%;background:#E4002B;color:#fff;border:1px solid #c70024;border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">Entrar</button>
+<div id="authGate" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(180deg,#f7f7f7,#e8e8e8);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
+<div style="max-width:400px;width:100%;text-align:center;background:#fff;border-radius:16px;padding:40px 32px;box-shadow:0 8px 40px rgba(0,0,0,.1)">
+<svg viewBox="0 0 200 80" style="width:180px;margin:0 auto 20px;display:block" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(60,2)">
+    <path d="M20,0 L40,0 L40,20 L60,20 L60,40 L40,40 L40,20 L20,20 Z" fill="#E4002B"/>
+    <path d="M40,20 L60,20 L60,0 L80,0 L80,40 L60,40 L60,20 L40,20 Z" fill="#4A2820"/>
+    <path d="M20,20 L40,20 L40,40 L60,40 L60,60 L40,60 L40,40 L20,40 Z" fill="#4A2820"/>
+    <path d="M40,40 L60,40 L60,20 L80,20 L80,60 L60,60 L60,40 L40,40 Z" fill="#E4002B"/>
+  </g>
+  <text x="100" y="75" text-anchor="middle" font-family="'Space Grotesk',Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="1"><tspan fill="#E4002B">ARCA</tspan><tspan fill="#4A2820">CONTINENTAL</tspan></text>
+</svg>
+<div style="width:60px;height:3px;background:linear-gradient(90deg,#E4002B,#4A2820);margin:0 auto 16px;border-radius:2px"></div>
+<h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#1a1a1a;font-size:18px;margin:0 0 4px">Catálogo de Repuestos</h2>
+<p style="color:#8c95a0;font-size:12px;margin:0 0 24px">Jefatura Nacional de Mantenimiento</p>
+<input id="authPass" type="password" placeholder="Contraseña de acceso" style="width:100%;background:#f5f6f8;border:1px solid #d4d8dd;color:#1a1a1a;border-radius:10px;padding:13px 16px;font-size:15px;font-family:inherit;text-align:center"/>
+<button id="authBtn" style="margin-top:12px;width:100%;background:#E4002B;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 12px rgba(228,0,43,.3)">Ingresar</button>
 <p id="authErr" style="color:#dc3545;font-size:12.5px;margin:10px 0 0;min-height:18px"></p>
 </div>
 </div>
@@ -152,8 +160,18 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 <div class="app">
   <!-- Top bar -->
   <div class="topbar">
-    <div class="logo"></div>
-    <div><h1 class="disp">Catálogo de Repuestos</h1><span class="sub">ACL · Despiece por máquina</span></div>
+    <svg viewBox="0 0 160 50" style="width:130px;flex:none" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(0,1) scale(0.55)">
+        <path d="M10,0 L25,0 L25,15 L40,15 L40,30 L25,30 L25,15 L10,15 Z" fill="#E4002B"/>
+        <path d="M25,15 L40,15 L40,0 L55,0 L55,30 L40,30 L40,15 L25,15 Z" fill="#4A2820"/>
+        <path d="M10,15 L25,15 L25,30 L40,30 L40,45 L25,45 L25,30 L10,30 Z" fill="#4A2820"/>
+        <path d="M25,30 L40,30 L40,15 L55,15 L55,45 L40,45 L40,30 L25,30 Z" fill="#E4002B"/>
+      </g>
+      <text x="36" y="20" font-family="'Space Grotesk',Arial,sans-serif" font-size="11" font-weight="700" letter-spacing=".5"><tspan fill="#E4002B">ARCA</tspan><tspan fill="#4A2820">CONTINENTAL</tspan></text>
+      <text x="36" y="33" font-family="'Inter',Arial,sans-serif" font-size="7" fill="#8c95a0" letter-spacing=".3">LINDLEY</text>
+    </svg>
+    <div style="width:1px;height:28px;background:var(--line);flex:none"></div>
+    <div><h1 class="disp" style="color:var(--text)">Catálogo de Repuestos</h1><span class="sub">Despiece por máquina</span></div>
     <span class="spacer"></span>
     <div class="searchBox">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
