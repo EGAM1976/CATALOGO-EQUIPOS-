@@ -1,433 +1,402 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Catálogo de Despieces · ACL</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --ink:#0e151d; --panel:#151f2a; --panel-2:#1b2733; --line:#28353f;
-    --text:#e8eef4; --muted:#8aa0b3; --faint:#5f7386;
-    --accent:#ff9e2c; --accent-2:#3b82f6; --ok:#3ecf8e;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:
-      radial-gradient(90% 60% at 100% 0%,rgba(59,130,246,.10),transparent 60%),
-      radial-gradient(70% 50% at 0% 100%,rgba(255,158,44,.08),transparent 55%),
-      var(--ink);
-    color:var(--text);font-family:"Inter",system-ui,Segoe UI,Roboto,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;min-height:100dvh}
-  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
-  .disp{font-family:"Space Grotesk","Inter",sans-serif}
-  a{color:inherit;text-decoration:none}
+:root{--ink:#0e151d;--panel:#151f2a;--panel-2:#1b2733;--line:#28353f;--text:#e8eef4;--muted:#8aa0b3;--faint:#5f7386;--accent:#ff9e2c;--accent-2:#3b82f6;--ok:#3ecf8e;--danger:#ff5d5d}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--ink);color:var(--text);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"JetBrains Mono",monospace}
+.disp{font-family:"Space Grotesk",sans-serif}
 
-  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
+/* Layout: header + 3-panel */
+.app{display:flex;flex-direction:column;height:100vh}
+.topbar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#18232f,#131c26);flex:none;flex-wrap:wrap}
+.topbar .logo{width:32px;height:32px;border-radius:8px;flex:none;position:relative;background:radial-gradient(120% 120% at 30% 20%,#ffb455,#ff9e2c 45%,#c96f00);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.topbar .logo::before{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;background:#0e151d;clip-path:polygon(0 20%,50% 0,100% 20%,100% 45%,50% 65%,0 45%)}
+.topbar h1{font-size:15px;font-weight:700;letter-spacing:.2px}
+.topbar .sub{font-size:10px;color:var(--faint);letter-spacing:1px;text-transform:uppercase}
+.topbar .spacer{flex:1}
+.topbar .searchBox{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:200px;max-width:340px}
+.topbar .searchBox input{background:transparent;border:none;color:var(--text);font-size:12.5px;font-family:inherit;flex:1;outline:none}
+.topbar .searchBox input::placeholder{color:var(--faint)}
+.topbar .searchBox svg{width:14px;height:14px;stroke:var(--faint);fill:none;stroke-width:2;flex:none}
+.abtn{font-family:inherit;font-size:11.5px;font-weight:600;color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:.12s;white-space:nowrap}
+.abtn:hover{border-color:#3a4a58;background:#22303d}
+.abtn.admin{background:transparent;color:var(--faint);border-color:transparent;padding:6px 8px}
+.abtn.admin:hover{color:var(--accent)}
+.abtn.ed{background:linear-gradient(180deg,#49d38f,#2fb877);color:#052616;border-color:#1f9860}
+.abtn.ex{background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border-color:#e98a12}
+.adminBtns{display:none;gap:6px;align-items:center}
 
-  header{display:flex;align-items:center;gap:13px;padding:6px 2px 18px;flex-wrap:wrap}
-  .admin-btns{display:flex;gap:8px;align-items:center}
-  .abtn{font-family:inherit;font-size:12px;font-weight:600;color:#e8eef4;background:#1b2733;border:1px solid #28353f;border-radius:9px;padding:8px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;transition:.15s;white-space:nowrap}
-  .abtn:hover{border-color:#3a4a58;background:#22303d}
-  .editor-btn{background:linear-gradient(180deg,#49d38f,#2fb877);color:#052616;border-color:#1f9860}
-  .editor-btn:hover{background:linear-gradient(180deg,#57dd99,#37c380)}
-  .explo-btn{background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border-color:#e98a12}
-  .explo-btn:hover{background:linear-gradient(180deg,#ffb75c,#ffa634)}
-  .lock-btn{padding:8px 10px;font-size:14px}
-  .unlock-btn{background:transparent;border:1px solid #28353f;color:#5f7386;padding:7px 12px;font-size:11.5px}
-  .unlock-btn:hover{border-color:#ff9e2c;color:#ff9e2c}
-  .logo{width:40px;height:40px;border-radius:11px;flex:none;position:relative;
-    background:radial-gradient(120% 120% at 30% 20%,#ffb455,#ff9e2c 45%,#c96f00);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 4px 16px rgba(255,158,44,.35)}
-  .logo::before,.logo::after{content:"";position:absolute;background:#0e151d;border-radius:2px}
-  .logo::before{width:16px;height:2.6px;top:18px;left:8px;box-shadow:0 6px 0 #0e151d,0 -6px 0 #0e151d}
-  .logo::after{width:2.6px;height:16px;top:12px;left:27px}
-  header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.2px}
-  header p{margin:2px 0 0;font-size:11.5px;color:var(--faint);letter-spacing:1.4px;text-transform:uppercase;font-weight:600}
+.main{display:flex;flex:1;min-height:0}
 
-  .search{margin-left:auto;position:relative;min-width:220px}
-  .search input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);
-    border-radius:11px;padding:11px 13px 11px 36px;font-size:13px;font-family:inherit}
-  .search input:focus{outline:none;border-color:var(--accent)}
-  .search input::placeholder{color:var(--faint)}
-  .search svg{position:absolute;left:12px;top:12px;width:15px;height:15px;stroke:var(--faint);fill:none}
+/* Left: tree */
+.tree{width:280px;flex:none;border-right:1px solid var(--line);background:var(--panel);overflow:auto;font-size:12.5px}
+.tree-head{padding:10px 12px;border-bottom:1px solid var(--line);font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+.tnode{cursor:pointer;user-select:none}
+.tnode .tlabel{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid rgba(40,53,63,.4);transition:.1s}
+.tnode .tlabel:hover{background:var(--panel-2)}
+.tnode .tlabel.sel{background:#20303e;border-left:3px solid var(--accent)}
+.tnode .tarrow{width:14px;text-align:center;color:var(--faint);font-size:10px;flex:none;transition:.15s}
+.tnode .tarrow.open{transform:rotate(90deg)}
+.tnode .ticon{font-size:13px;flex:none}
+.tnode .tname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tnode .tcount{font-size:10px;color:var(--faint);font-family:"JetBrains Mono",monospace;flex:none}
+.tchildren{padding-left:14px;display:none}
+.tchildren.open{display:block}
+.tnode .tlabel.desp{padding-left:20px}
+.tnode .tlabel.desp .ticon{color:var(--accent)}
 
-  /* breadcrumb */
-  .crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);
-    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:16px}
-  .crumbs .c{cursor:pointer;padding:2px 4px;border-radius:5px;transition:.12s;white-space:nowrap}
-  .crumbs .c:hover{color:var(--text);background:var(--panel-2)}
-  .crumbs .sep{color:var(--faint);user-select:none}
-  .crumbs .cur{color:var(--accent);cursor:default;letter-spacing:.5px}
-  .crumbs .cur:hover{background:none}
-  .crumbs .home{color:var(--text);font-weight:600}
+/* Center: viewer */
+.viewer{flex:1;display:flex;flex-direction:column;min-width:0;background:linear-gradient(170deg,#f0f2f5,#e4e8ec,#dde1e6)}
+.viewer-toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+.viewer-toolbar .abtn{font-size:11px;padding:5px 9px}
+.viewarea{flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab}
+.viewarea.grabbing{cursor:grabbing}
+.viewarea .pan{position:absolute;left:0;top:0;transform-origin:0 0}
+.viewarea img{display:block;user-select:none;-webkit-user-drag:none;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.18)}
+.viewarea svg.ov{position:absolute;left:0;top:0;pointer-events:none}
+.viewarea .balloon{pointer-events:auto;cursor:pointer}
+.viewer-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:14px;text-align:center;padding:30px}
 
-  .levelbar{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 2px 12px}
-  .levelbar h2{margin:0;font-family:"Space Grotesk";font-size:15px;font-weight:600;letter-spacing:.3px}
-  .levelbar .k{font-size:11px;color:var(--faint);font-family:"JetBrains Mono"}
+/* Bottom: parts table */
+.partsbar{height:220px;flex:none;border-top:2px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
+.partsbar-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
+.partsbar-head h3{font-size:13px;font-weight:700}
+.partsbar-head .pcount{font-size:11px;color:var(--faint);font-family:"JetBrains Mono",monospace}
+.partsbar-head .spacer{flex:1}
+.ptable-wrap{flex:1;overflow:auto}
+table.ptable{width:100%;border-collapse:collapse;font-size:12px}
+.ptable thead{position:sticky;top:0;z-index:1}
+.ptable th{background:var(--panel-2);color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:7px 10px;text-align:left;border-bottom:1px solid var(--line)}
+.ptable td{padding:6px 10px;border-bottom:1px solid rgba(40,53,63,.3);color:var(--text)}
+.ptable tr{cursor:pointer;transition:.1s}
+.ptable tr:hover{background:var(--panel-2)}
+.ptable tr.sel{background:#20303e}
+.ptable .pos{font-family:"JetBrains Mono",monospace;color:var(--accent);font-weight:700;font-size:12px}
+.ptable .code{font-family:"JetBrains Mono",monospace;color:#8fd4ff;font-size:12px}
+.ptable .sap{font-family:"JetBrains Mono",monospace;color:#a0d0a0;font-size:11px}
 
-  /* cards */
-  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-  .card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:16px;cursor:pointer;transition:.15s;position:relative;overflow:hidden}
-  .card:hover{border-color:#3c4d5c;background:var(--panel-2);transform:translateY(-1px)}
-  .card .accent{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
-  .card .top{display:flex;align-items:center;gap:10px}
-  .card .ico{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;
-    background:#0f1a24;border:1px solid var(--line)}
-  .card .ico svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.7}
-  .card h3{margin:0;font-size:15px;font-weight:600;font-family:"Space Grotesk";line-height:1.2}
-  .card .tag{font-size:10.5px;font-family:"JetBrains Mono";color:var(--faint);letter-spacing:.4px;text-transform:uppercase;margin-top:2px}
-  .card .foot{display:flex;align-items:center;justify-content:space-between;margin-top:13px}
-  .card .cnt{font-size:11.5px;color:var(--muted);font-family:"JetBrains Mono"}
-  .card .go{font-size:12px;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:4px}
+.resizer{height:4px;background:var(--line);cursor:ns-resize;flex:none}
+.resizer:hover{background:var(--accent)}
 
-  .card.machine .ico svg{stroke:var(--accent-2)}
-  .card.machine .accent{background:var(--accent-2)}
-  .chip{font-size:10.5px;font-weight:600;font-family:"JetBrains Mono";letter-spacing:.4px;
-    padding:2px 7px;border-radius:20px;background:#12233a;color:#8fc0ff;border:1px solid #234a6e}
-  .card.pending{cursor:not-allowed;opacity:.62}
-  .card.pending:hover{transform:none;border-color:var(--line);background:var(--panel)}
-  .card.pending .accent{background:#3a4753}
-  .card.pending .ico svg{stroke:var(--faint)}
-  .badge-pend{font-size:11px;color:var(--faint);font-family:"JetBrains Mono"}
-
-  .path{font-size:11px;color:var(--faint);font-family:"JetBrains Mono";margin-top:8px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-  .empty{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
-  .empty.err{border-color:#7a3b3b;color:#ffb3b3;background:rgba(60,20,20,.25)}
-  .empty code{color:var(--accent);font-family:"JetBrains Mono";font-size:12px}
-
-  .hint{margin-top:26px;font-size:12px;color:var(--faint);line-height:1.6;
-    border-top:1px solid var(--line);padding-top:16px}
-  .hint b{color:var(--muted)}
-
-  @media (max-width:640px){
-    .wrap{padding:16px 13px 50px}
-    header{flex-wrap:wrap}
-    .search{margin-left:0;width:100%;order:3;min-width:0}
-    header h1{font-size:17px}
-  }
+.hidden{display:none!important}
+@media(max-width:700px){.tree{width:220px} .partsbar{height:180px}}
 </style>
 </head>
 <body>
-<!-- ===== CONTRASEÑA DE ACCESO ===== -->
+
+<!-- Auth gate (same as before) -->
 <div id="authGate" style="position:fixed;inset:0;z-index:9999;background:radial-gradient(90% 60% at 100% 0%,rgba(59,130,246,.10),transparent 60%),radial-gradient(70% 50% at 0% 100%,rgba(255,158,44,.08),transparent 55%),#0e151d;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
 <div style="max-width:380px;width:100%;text-align:center">
 <div style="width:56px;height:56px;border-radius:14px;margin:0 auto 18px;position:relative;background:radial-gradient(120% 120% at 30% 20%,#ffb455,#ff9e2c 45%,#c96f00);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 4px 18px rgba(255,158,44,.35)"><div style="position:absolute;inset:0;margin:auto;width:22px;height:22px;background:#0e151d;clip-path:polygon(0 20%,50% 0,100% 20%,100% 45%,50% 65%,0 45%)"></div></div>
-<h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#e8eef4;font-size:20px;margin:0 0 4px">Sistema de Despiece de Repuestos</h2>
+<h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#e8eef4;font-size:20px;margin:0 0 4px">Catálogo de Repuestos</h2>
 <p style="color:#5f7386;font-size:12.5px;margin:0 0 22px">Acceso restringido · ACL</p>
-<input id="authPass" type="password" placeholder="Contraseña" style="width:100%;background:#151f2a;border:1px solid #28353f;color:#e8eef4;border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;text-align:center" />
+<input id="authPass" type="password" placeholder="Contraseña" style="width:100%;background:#151f2a;border:1px solid #28353f;color:#e8eef4;border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;text-align:center"/>
 <button id="authBtn" style="margin-top:12px;width:100%;background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border:1px solid #e98a12;border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">Entrar</button>
 <p id="authErr" style="color:#ff5d5d;font-size:12.5px;margin:10px 0 0;min-height:18px"></p>
 </div>
 </div>
 <script>
 (function(){
-  // ── PARA CAMBIAR LA CONTRASEÑA: ──
-  // 1. Abre esta página en la consola del navegador (F12 → Console)
-  // 2. Escribe:  calcHash('TU_NUEVA_CONTRASEÑA')
-  // 3. Copia el resultado y reemplaza el valor de HASH abajo
-  // 4. Sube el archivo actualizado a GitHub
   var HASH="36b00e26f465308d0c505a6a1867b5acbc2d95a8648d08029c276fae421d9a13";
-  // Contraseña inicial: ACL2026 (cámbiala después de probar)
-
-  var DAYS=30; // días que recuerda la sesión
-  var KEY="acl:auth";
+  var DAYS=30;var KEY="acl:auth";
   function saved(){try{var s=localStorage.getItem(KEY);if(!s)return false;var d=JSON.parse(s);return d.h===HASH&&Date.now()<d.exp;}catch(e){return false;}}
   if(saved()){document.getElementById("authGate").style.display="none";}
   else{document.body.style.overflow="hidden";}
-
-  async function sha256(str){
-    var buf=new TextEncoder().encode(str);
-    var hb=await crypto.subtle.digest("SHA-256",buf);
-    return Array.from(new Uint8Array(hb)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
-  }
-  window.calcHash=async function(p){var h=await sha256(p);console.log("Hash para pegar en HASH:\n"+h);return h;};
-
+  async function sha256(str){var buf=new TextEncoder().encode(str);var hb=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(hb)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");}
+  window.calcHash=async function(p){var h=await sha256(p);console.log("Hash:\n"+h);return h;};
   document.getElementById("authBtn").onclick=async function(){
-    var p=document.getElementById("authPass").value;
-    if(!p){document.getElementById("authErr").textContent="Escribe la contraseña.";return;}
+    var p=document.getElementById("authPass").value;if(!p){document.getElementById("authErr").textContent="Escribe la contraseña.";return;}
     var h=await sha256(p);
-    if(h===HASH){
-      try{localStorage.setItem(KEY,JSON.stringify({h:HASH,exp:Date.now()+DAYS*86400000}));}catch(e){}
-      document.getElementById("authGate").style.display="none";
-      document.body.style.overflow="";
-    }else{
-      document.getElementById("authErr").textContent="Contraseña incorrecta.";
-      document.getElementById("authPass").value="";
-      document.getElementById("authPass").focus();
-    }
+    if(h===HASH){try{localStorage.setItem(KEY,JSON.stringify({h:HASH,exp:Date.now()+DAYS*86400000}));}catch(e){}document.getElementById("authGate").style.display="none";document.body.style.overflow="";}
+    else{document.getElementById("authErr").textContent="Contraseña incorrecta.";document.getElementById("authPass").value="";document.getElementById("authPass").focus();}
   };
   document.getElementById("authPass").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("authBtn").click();});
 })();
 </script>
-<!-- ===== FIN CONTRASEÑA ===== -->
 
-
-<div class="wrap">
-  <header>
+<div class="app">
+  <!-- Top bar -->
+  <div class="topbar">
     <div class="logo"></div>
-    <div>
-      <h1 class="disp" id="hTitle">Catálogo de Despieces</h1>
-      <p id="hSub">ACL · Repuestos por máquina</p>
+    <div><h1 class="disp">Catálogo de Repuestos</h1><span class="sub">ACL · Despiece por máquina</span></div>
+    <span class="spacer"></span>
+    <div class="searchBox">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+      <input id="globalSearch" type="search" placeholder="Buscar por N° parte, descripción o máquina…" autocomplete="off"/>
     </div>
-    <div class="admin-btns" id="adminBtns" style="display:none">
-      <a class="abtn editor-btn" id="btnGoEditor" title="Organizar plantas, zonas, líneas y máquinas">Editor de Catálogo</a>
-      <a class="abtn explo-btn" id="btnGoExplo" title="Crear o editar despieces (PDF / STP / STL)">Vista Explosionada</a>
-      <button class="abtn lock-btn" id="btnLockAdmin" title="Cerrar sesión de administrador">🔒</button>
+    <div class="adminBtns" id="adminBtns">
+      <a class="abtn ed" id="goEditor">Editor de Catálogo</a>
+      <a class="abtn ex" id="goExplo">Vista Explosionada</a>
+      <button class="abtn" id="lockAdmin">🔒</button>
     </div>
-    <button class="abtn unlock-btn" id="btnUnlockAdmin" title="Acceso de administrador">🔑 Admin</button>
-    <div class="search">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
-      <input id="q" type="search" placeholder="Buscar máquina… (ej. llenadora)" autocomplete="off" />
-    </div>
-  </header>
-
-  <div class="crumbs" id="crumbs"></div>
-  <div class="levelbar" id="levelbar" style="display:none">
-    <h2 id="levelTitle"></h2><span class="k" id="levelKind"></span>
+    <button class="abtn admin" id="unlockAdmin">🔑 Admin</button>
   </div>
 
-  <div id="content"></div>
+  <div class="main">
+    <!-- Left: tree -->
+    <div class="tree" id="tree">
+      <div class="tree-head">Estructura de planta</div>
+      <div id="treeContent"></div>
+    </div>
 
-  <div class="hint" id="hint">
-    Toca una <b>planta</b> para ver sus zonas, luego la <b>línea</b> y la <b>máquina</b>. En la máquina se abre el despiece con los IDs y la leyenda, en modo solo lectura.
+    <!-- Center: viewer + bottom table -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div class="viewer" id="viewer">
+        <div class="viewer-toolbar" id="viewToolbar">
+          <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
+          <button class="abtn" id="vZoomOut">−</button>
+          <button class="abtn" id="vZoomIn">+</button>
+          <button class="abtn" id="vFit">Encuadrar</button>
+          <button class="abtn" id="vPrev">‹</button>
+          <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
+          <button class="abtn" id="vNext">›</button>
+          <button class="abtn" id="vCsv">⬇ CSV</button>
+        </div>
+        <div class="viewarea" id="viewarea">
+          <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
+        </div>
+        <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
+      </div>
+      <div class="resizer" id="resizer"></div>
+      <div class="partsbar" id="partsbar">
+        <div class="partsbar-head">
+          <h3 class="disp">Repuestos</h3>
+          <span class="pcount" id="pcount"></span>
+          <span class="spacer"></span>
+        </div>
+        <div class="ptable-wrap">
+          <table class="ptable">
+            <thead><tr><th style="width:60px">Pos.</th><th style="width:140px">N° de artículo</th><th>Denominación</th><th style="width:120px">Código SAP</th></tr></thead>
+            <tbody id="ptbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
 <script>
+"use strict";
 (function(){
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
   const $=s=>document.querySelector(s);
-  const params=new URLSearchParams(location.search);
-  const CAT_URL=params.get("catalogo")||"catalogo.json";
-  const VIEWER=params.get("visor")||"explosionado.html";
+  const VIEWER_URL="explosionado.html";
+  const CAT_URL="catalogo.json";
 
-  const ORDER=["plantas","zonas","lineas","maquinas","despieces"];
-  const LABELS=["Plantas","Zonas / Áreas","Líneas de embotellado","Máquinas","Despieces / Láminas"];
-  const KIND=["planta","zona","línea","máquina","lámina"];
-  const ICONS={
-    planta:'<path d="M4 20V9l5-3v3l5-3v3l5-3v14z"/><path d="M4 20h16"/>',
-    zona:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16M12 4v16"/>',
-    "línea":'<path d="M3 12h4l2-5 3 10 2-5h7"/>',
-    "máquina":'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
-    "lámina":'<path d="M12 3l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16.5l8 4 8-4"/>'
+  let DATA=null,selDespiece=null,curProject=null;
+  let vImg={w:0,h:0,src:""},vMarkers=[],vSel=null;
+  let vZoom=1,vPanX=0,vPanY=0;
+  let pdfDoc=null,pdfPage=1,pdfPages=1;
+
+  // ---- Admin ----
+  const ADMIN_HASH="64e48f3bf07307f751c02213b95e0b5e1e8351597dfbe12bce5cbf115591ce3f";
+  const ADMIN_KEY="acl:admin";
+  async function sha256a(s){const b=new TextEncoder().encode(s);const h=await crypto.subtle.digest("SHA-256",b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,"0")).join("");}
+  function isAdmin(){try{const s=JSON.parse(localStorage.getItem(ADMIN_KEY)||"{}");return s.h===ADMIN_HASH&&Date.now()<s.exp;}catch(e){return false;}}
+  function showAdmin(on){
+    $("#adminBtns").style.display=on?"flex":"none";
+    $("#unlockAdmin").style.display=on?"none":"";
+    if(on){const base=location.href.replace(/[^/]*$/,"");$("#goEditor").href=base+"catalogo_editor.html";$("#goExplo").href=base+"explosionado.html";}
+  }
+  if(isAdmin())showAdmin(true);
+  $("#unlockAdmin").onclick=async function(){
+    const p=prompt("Contraseña de administrador:");if(p===null)return;
+    if(await sha256a(p)===ADMIN_HASH){try{localStorage.setItem(ADMIN_KEY,JSON.stringify({h:ADMIN_HASH,exp:Date.now()+7*86400000}));}catch(e){}showAdmin(true);}
+    else alert("Contraseña incorrecta.");
   };
+  $("#lockAdmin").onclick=function(){try{localStorage.removeItem(ADMIN_KEY);}catch(e){}showAdmin(false);};
 
-  let DATA=null, PATH=[], FLAT=[]; // FLAT = all machines with path
-
-  fetch(CAT_URL,{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();})
-    .then(d=>{DATA=d;init();})
-    .catch(err=>{
-      $("#crumbs").style.display="none";$("#hint").style.display="none";
-      $("#content").innerHTML='<div class="empty err">No se pudo cargar el catálogo <code>'+esc(CAT_URL)+'</code>.<br>Verifica que el archivo exista y esté publicado en el mismo sitio.</div>';
-    });
-
-  function init(){
-    if(DATA.titulo)$("#hTitle").textContent=DATA.titulo.replace(/^ACL\s*·\s*/,"")||"Catálogo de Despieces";
-    if(DATA.subtitulo)$("#hSub").textContent=DATA.subtitulo;
-    buildFlat();
-    $("#q").addEventListener("input",render);
-    render();
-  }
-
-  // flatten all machines for global search
-  function buildFlat(){
-    FLAT=[];
-    (DATA.plantas||[]).forEach(pl=>(pl.zonas||[]).forEach(zo=>(zo.lineas||[]).forEach(li=>(li.maquinas||[]).forEach(mq=>{
-      FLAT.push({mq,path:[pl,zo,li],labels:[pl.nombre,zo.nombre,li.nombre]});
-    }))));
-  }
-
-  function currentList(){
-    if(PATH.length===0)return DATA.plantas||[];
-    return PATH[PATH.length-1][ORDER[PATH.length]]||[];
-  }
-  function childKeyCount(node,depth){
-    const key=ORDER[depth+1]; if(!key)return null;
-    const arr=node[key]||[];
-    // for plantas, count total machines (nicer landing); else direct children
-    if(depth===0){
-      let m=0;(node.zonas||[]).forEach(z=>(z.lineas||[]).forEach(l=>m+=(l.maquinas||[]).length));
-      return {n:m,unit:m===1?"máquina":"máquinas"};
-    }
-    return {n:arr.length,unit:arr.length===1?KIND[depth+1]:KIND[depth+1]+"s"};
-  }
-
-  function render(){
-    const q=($("#q").value||"").trim().toLowerCase();
-    renderCrumbs(!!q);
-    if(q){ renderSearch(q); return; }
-    const depth=PATH.length;
-    $("#levelbar").style.display="flex";
-    $("#levelTitle").textContent=LABELS[depth];
-    const list=currentList();
-    $("#levelKind").textContent=list.length+" "+(list.length===1?KIND[depth]:KIND[depth]+"s");
-
-    if(!list.length){
-      $("#content").innerHTML='<div class="empty">Aún no hay '+LABELS[depth].toLowerCase()+' configuradas aquí.</div>';
-      return;
-    }
-    const g=document.createElement("div");g.className="grid";
-    list.forEach(node=>{
-      if(depth<3) g.appendChild(nodeCard(node,depth));
-      else if(depth===3) g.appendChild(machineCard(node));
-      else g.appendChild(despieceCard(node));
-    });
-    $("#content").innerHTML="";$("#content").appendChild(g);
-  }
-
-  function nodeCard(node,depth){
-    const kind=KIND[depth];
-    const c=document.createElement("div");c.className="card";
-    const cnt=childKeyCount(node,depth);
-    c.innerHTML=`<span class="accent"></span>
-      <div class="top">
-        <div class="ico"><svg viewBox="0 0 24 24">${ICONS[kind]}</svg></div>
-        <div><h3>${esc(node.nombre)}</h3><div class="tag">${kind}</div></div>
-      </div>
-      <div class="foot">
-        <span class="cnt">${cnt?cnt.n+" "+cnt.unit:""}</span>
-        <span class="go">Abrir ›</span>
-      </div>`;
-    c.onclick=()=>{PATH.push(node);$("#q").value="";render();window.scrollTo({top:0,behavior:"smooth"});};
-    return c;
-  }
-
-  function machineCard(mq,pathNodes){
-    const des=Array.isArray(mq.despieces)?mq.despieces.filter(d=>d&&d.proyecto):[];
-    const single=mq.proyecto&&mq.proyecto.trim();
-    const has=des.length>0||single;
-    const c=document.createElement("div");c.className="card machine"+(has?"":" pending");
-    let footRight;
-    if(des.length) footRight='<span class="go">'+des.length+" lámina"+(des.length===1?"":"s")+" ›</span>";
-    else if(single) footRight='<span class="go">Ver despiece ›</span>';
-    else footRight='<span class="badge-pend">Sin despiece aún</span>';
-    c.innerHTML=`<span class="accent"></span>
-      <div class="top">
-        <div class="ico"><svg viewBox="0 0 24 24">${ICONS["máquina"]}</svg></div>
-        <div><h3>${esc(mq.nombre)}</h3><div class="tag">máquina${mq.marca?" · "+esc(mq.marca):""}</div></div>
-      </div>
-      <div class="foot">
-        ${mq.marca?`<span class="chip">${esc(mq.marca)}</span>`:'<span></span>'}
-        ${footRight}
-      </div>`;
-    if(des.length){
-      c.onclick=()=>{if(pathNodes)PATH=pathNodes.slice();PATH.push(mq);$("#q").value="";render();window.scrollTo({top:0,behavior:"smooth"});};
-    }else if(single){
-      const url=VIEWER+"?proyecto="+encodeURIComponent(mq.proyecto)+"&cat="+encodeURIComponent(location.pathname.split("/").pop()||"catalogo.html");
-      c.onclick=()=>{location.href=url;};
-    }
-    return c;
-  }
-  function despieceCard(d){
-    const has=d.proyecto&&d.proyecto.trim();
-    const tipo=(d.tipo||"").toUpperCase();
-    const c=document.createElement("div");c.className="card machine"+(has?"":" pending");
-    c.innerHTML=`<span class="accent"></span>
-      <div class="top">
-        <div class="ico"><svg viewBox="0 0 24 24">${ICONS["lámina"]}</svg></div>
-        <div><h3>${esc(d.nombre||"Despiece")}</h3><div class="tag">lámina${tipo?" · "+esc(tipo):""}</div></div>
-      </div>
-      <div class="foot">
-        ${tipo?`<span class="chip">${tipo==="3D"?"3D · STP":"2D · PDF"}</span>`:'<span></span>'}
-        ${has?'<span class="go">Abrir ›</span>':'<span class="badge-pend">Pendiente</span>'}
-      </div>`;
-    if(has){
-      const url=VIEWER+"?proyecto="+encodeURIComponent(d.proyecto)+"&cat="+encodeURIComponent(location.pathname.split("/").pop()||"catalogo.html");
-      c.onclick=()=>{location.href=url;};
-    }
-    return c;
-  }
-
-  function renderSearch(q){
-    $("#levelbar").style.display="flex";
-    $("#levelTitle").textContent="Resultados";
-    const res=FLAT.filter(f=>(f.mq.nombre||"").toLowerCase().includes(q)||(f.mq.marca||"").toLowerCase().includes(q)||f.labels.join(" ").toLowerCase().includes(q));
-    $("#levelKind").textContent=res.length+" "+(res.length===1?"coincidencia":"coincidencias");
-    if(!res.length){$("#content").innerHTML='<div class="empty">Sin coincidencias para “'+esc(q)+'”.</div>';return;}
-    const g=document.createElement("div");g.className="grid";
-    res.forEach(f=>{
-      const card=machineCard(f.mq,f.path);
-      const path=document.createElement("div");path.className="path";
-      path.textContent=f.labels.join("  ›  ");
-      card.appendChild(path);
-      g.appendChild(card);
-    });
-    $("#content").innerHTML="";$("#content").appendChild(g);
-  }
-
-  function renderCrumbs(searchMode){
-    const el=$("#crumbs");el.innerHTML="";
-    const home=document.createElement("span");home.className="c home";home.textContent="Plantas";
-    home.onclick=()=>{PATH=[];$("#q").value="";render();};
-    el.appendChild(home);
-    if(searchMode){
-      addSep(el);const s=document.createElement("span");s.className="cur";s.textContent="Búsqueda";el.appendChild(s);return;
-    }
-    PATH.forEach((node,i)=>{
-      addSep(el);
-      const c=document.createElement("span");
-      const last=(i===PATH.length-1);
-      c.className=last?"cur":"c";c.textContent=node.nombre;
-      if(!last)c.onclick=()=>{PATH=PATH.slice(0,i+1);render();};
-      el.appendChild(c);
-    });
-    if(PATH.length<3){
-      addSep(el);const nxt=document.createElement("span");nxt.className="cur";
-      nxt.textContent="▸ "+KIND[PATH.length];el.appendChild(nxt);
-    }
-  }
-  function addSep(el){const s=document.createElement("span");s.className="sep";s.textContent="›";el.appendChild(s);}
+  // ---- Load catalog ----
+  fetch(CAT_URL,{cache:"no-cache"}).then(r=>r.json()).then(d=>{DATA=d;buildTree();}).catch(()=>{$("#treeContent").innerHTML='<div style="padding:14px;color:var(--faint)">No se pudo cargar catalogo.json</div>';});
 
   function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
-  // ===== ADMIN (segunda contraseña, diferente) =====
-  const ADMIN_HASH="64e48f3bf07307f751c02213b95e0b5e1e8351597dfbe12bce5cbf115591ce3f";
-  // Contraseña admin inicial: ADMIN2026  (¡CÁMBIALA! usa calcHash('tu_clave') en la consola)
-  const ADMIN_KEY="acl:admin";
-  const ADMIN_DAYS=7;
-
-  async function sha256a(str){
-    const buf=new TextEncoder().encode(str);
-    const hb=await crypto.subtle.digest("SHA-256",buf);
-    return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  // ---- Tree ----
+  function buildTree(){
+    const root=$("#treeContent");root.innerHTML="";
+    (DATA.plantas||[]).forEach(pl=>{
+      root.appendChild(makeNode(pl,"🏭","planta",function(){
+        return (pl.zonas||[]).map(zo=>makeNode(zo,"📦","zona",function(){
+          return (zo.lineas||[]).map(li=>makeNode(li,"⚡","línea",function(){
+            return (li.maquinas||[]).map(mq=>makeNode(mq,"⚙","máquina",function(){
+              const des=mq.despieces||[];
+              if(mq.proyecto&&!des.length)des.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
+              return des.map(d=>makeDespNode(d,mq));
+            }));
+          }));
+        }));
+      }));
+    });
+  }
+  function makeNode(item,icon,kind,childrenFn){
+    const div=document.createElement("div");div.className="tnode";
+    const label=document.createElement("div");label.className="tlabel";
+    label.style.paddingLeft=(kind==="planta"?"8":"")+"px";
+    const arrow=document.createElement("span");arrow.className="tarrow";arrow.textContent="▸";
+    const ic=document.createElement("span");ic.className="ticon";ic.textContent=icon;
+    const nm=document.createElement("span");nm.className="tname";nm.textContent=item.nombre;
+    label.appendChild(arrow);label.appendChild(ic);label.appendChild(nm);
+    div.appendChild(label);
+    let childBox=null,loaded=false;
+    label.onclick=function(){
+      if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
+      if(!loaded){loaded=true;const kids=childrenFn();kids.forEach(function(k){childBox.appendChild(k);});}
+      const open=childBox.classList.toggle("open");
+      arrow.classList.toggle("open",open);
+    };
+    return div;
+  }
+  function makeDespNode(d,mq){
+    const div=document.createElement("div");div.className="tnode";
+    const label=document.createElement("div");label.className="tlabel desp";
+    const ic=document.createElement("span");ic.className="ticon";ic.textContent="📋";
+    const nm=document.createElement("span");nm.className="tname";nm.textContent=d.nombre||"Despiece";
+    const chip=document.createElement("span");chip.className="tcount";chip.textContent=(d.tipo||"").toUpperCase();
+    label.appendChild(ic);label.appendChild(nm);label.appendChild(chip);
+    div.appendChild(label);
+    label.onclick=function(){
+      document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
+      label.classList.add("sel");
+      loadDespiece(d,mq);
+    };
+    return div;
   }
 
-  function isAdmin(){
-    try{const s=JSON.parse(localStorage.getItem(ADMIN_KEY)||"{}");return s.h===ADMIN_HASH&&Date.now()<s.exp;}catch(e){return false;}
-  }
-  function showAdminUI(on){
-    $("#adminBtns").style.display=on?"flex":"none";
-    $("#btnUnlockAdmin").style.display=on?"none":"";
-  }
-  function setAdminLinks(){
-    const base=location.href.replace(/[^/]*$/,"");
-    $("#btnGoEditor").href=base+"catalogo_editor.html";
-    $("#btnGoExplo").href=base+"explosionado.html";
-  }
-
-  if(isAdmin()){showAdminUI(true);setAdminLinks();}
-
-  $("#btnUnlockAdmin").onclick=async function(){
-    const p=prompt("Contraseña de administrador:");
-    if(p===null)return;
-    const h=await sha256a(p);
-    if(h===ADMIN_HASH){
-      try{localStorage.setItem(ADMIN_KEY,JSON.stringify({h:ADMIN_HASH,exp:Date.now()+ADMIN_DAYS*86400000}));}catch(e){}
-      showAdminUI(true);setAdminLinks();
-    }else{
-      alert("Contraseña de administrador incorrecta.");
+  // ---- Load despiece ----
+  async function loadDespiece(d,mq){
+    selDespiece=d;curProject=null;vMarkers=[];vSel=null;pdfDoc=null;
+    $("#viewTitle").textContent=(mq.nombre||"")+" · "+(d.nombre||"");
+    $("#viewerEmpty").classList.add("hidden");
+    const projPath=d.proyecto;
+    if(!projPath){$("#viewerEmpty").classList.remove("hidden");$("#viewerEmpty").textContent="Esta lámina no tiene archivo asignado.";return;}
+    try{
+      const resp=await fetch(projPath,{cache:"no-cache"});
+      if(!resp.ok)throw new Error("HTTP "+resp.status);
+      curProject=await resp.json();
+      if(curProject.type==="2d"){
+        vImg={w:curProject.imgW||1000,h:curProject.imgH||1000,src:curProject.image||""};
+        vMarkers=(curProject.markers||[]).map(function(m){return {id:String(m.id),x:+m.x,y:+m.y,text:m.text||"",parte:m.parte||"",sap:m.sap||""};});
+        setImage();renderOverlay();renderTable();
+        pdfPages=1;pdfPage=1;updatePageUI();
+      }else{
+        // 3D project - redirect to viewer
+        location.href=VIEWER_URL+"?proyecto="+encodeURIComponent(projPath);
+      }
+    }catch(e){
+      $("#viewerEmpty").classList.remove("hidden");
+      $("#viewerEmpty").textContent="No se pudo cargar: "+projPath+"\n"+e.message;
     }
+  }
+
+  // ---- Viewer (2D) ----
+  const viewarea=$("#viewarea"),vpan=$("#vpan"),vimg=$("#vimg"),vov=$("#vov");
+
+  function setImage(){
+    vimg.src=vImg.src;
+    vpan.style.width=vImg.w+"px";vpan.style.height=vImg.h+"px";
+    vov.setAttribute("viewBox","0 0 "+vImg.w+" "+vImg.h);vov.setAttribute("width",vImg.w);vov.setAttribute("height",vImg.h);
+    fitView();
+  }
+  function fitView(){
+    const sw=viewarea.clientWidth,sh=viewarea.clientHeight;if(!vImg.w)return;
+    vZoom=Math.min(sw/vImg.w,sh/vImg.h)*0.96;
+    vPanX=(sw-vImg.w*vZoom)/2;vPanY=(sh-vImg.h*vZoom)/2;applyPan();
+  }
+  function applyPan(){vpan.style.transform="translate("+vPanX+"px,"+vPanY+"px) scale("+vZoom+")";}
+  function zoomAt(f,cx,cy){const nz=Math.min(8,Math.max(0.05,vZoom*f));vPanX=cx-(cx-vPanX)*(nz/vZoom);vPanY=cy-(cy-vPanY)*(nz/vZoom);vZoom=nz;applyPan();}
+
+  // Pan/zoom events
+  let panStart=null;
+  viewarea.addEventListener("pointerdown",function(e){panStart={x:e.clientX,y:e.clientY,px:vPanX,py:vPanY};viewarea.classList.add("grabbing");});
+  viewarea.addEventListener("pointermove",function(e){if(!panStart)return;vPanX=panStart.px+(e.clientX-panStart.x);vPanY=panStart.py+(e.clientY-panStart.y);applyPan();});
+  viewarea.addEventListener("pointerup",function(){panStart=null;viewarea.classList.remove("grabbing");});
+  viewarea.addEventListener("pointercancel",function(){panStart=null;viewarea.classList.remove("grabbing");});
+  viewarea.addEventListener("wheel",function(e){e.preventDefault();var r=viewarea.getBoundingClientRect();zoomAt(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+
+  $("#vZoomIn").onclick=function(){var r=viewarea.getBoundingClientRect();zoomAt(1.25,r.width/2,r.height/2);};
+  $("#vZoomOut").onclick=function(){var r=viewarea.getBoundingClientRect();zoomAt(1/1.25,r.width/2,r.height/2);};
+  $("#vFit").onclick=fitView;
+
+  function renderOverlay(){
+    if(!vImg.w)return;
+    var R=Math.max(10,vImg.w*0.012);var out="";
+    vMarkers.forEach(function(m){
+      var cx=m.x*vImg.w,cy=m.y*vImg.h,sel=(m.id===vSel);
+      out+='<g class="balloon" data-id="'+m.id+'">'
+        +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="'+(sel?'#2f6fb0':'#ff9e2c')+'" stroke="#17110a" stroke-width="'+(R*0.12).toFixed(1)+'"/>'
+        +'<text x="'+cx.toFixed(1)+'" y="'+(cy+R*0.34).toFixed(1)+'" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-weight="700" font-size="'+(R*0.85).toFixed(1)+'" fill="'+(sel?'#fff':'#241300')+'">'+m.id+'</text></g>';
+    });
+    vov.innerHTML=out;
+    vov.querySelectorAll(".balloon").forEach(function(el){
+      el.addEventListener("click",function(){selectPart(el.getAttribute("data-id"));});
+    });
+  }
+
+  function selectPart(id){
+    vSel=id;renderOverlay();
+    document.querySelectorAll("#ptbody tr").forEach(function(tr){tr.classList.toggle("sel",tr.getAttribute("data-id")===id);
+      if(tr.getAttribute("data-id")===id)tr.scrollIntoView({block:"nearest",behavior:"smooth"});});
+  }
+
+  // ---- Parts table ----
+  function renderTable(){
+    var tb=$("#ptbody");tb.innerHTML="";
+    $("#pcount").textContent=vMarkers.length+" piezas";
+    vMarkers.forEach(function(m){
+      var tr=document.createElement("tr");tr.setAttribute("data-id",m.id);
+      tr.innerHTML='<td class="pos">'+esc(m.id)+'</td><td class="code">'+esc(m.parte)+'</td><td>'+esc(m.text||"—")+'</td><td class="sap">'+esc(m.sap)+'</td>';
+      tr.onclick=function(){selectPart(m.id);};
+      tb.appendChild(tr);
+    });
+  }
+
+  function updatePageUI(){
+    $("#vPageLabel").textContent="Pág "+pdfPage+"/"+pdfPages;
+    $("#vPrev").style.display=pdfPages>1?"":"none";
+    $("#vNext").style.display=pdfPages>1?"":"none";
+  }
+
+  // ---- CSV export ----
+  $("#vCsv").onclick=function(){
+    if(!vMarkers.length)return;
+    var csv="\ufeffPos,N_Parte,Descripcion,Codigo_SAP\n";
+    vMarkers.forEach(function(m){
+      csv+=m.id+","+csvCell(m.parte)+","+csvCell(m.text)+","+csvCell(m.sap)+"\n";
+    });
+    var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="repuestos.csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},400);
   };
-  $("#btnLockAdmin").onclick=function(){
-    try{localStorage.removeItem(ADMIN_KEY);}catch(e){}
-    showAdminUI(false);
-  };
+  function csvCell(s){s=(s||"").replace(/"/g,'""');return /[",\n]/.test(s)?'"'+s+'"':s;}
+
+  // ---- Resizer ----
+  var resizer=$("#resizer"),partsbar=$("#partsbar");
+  resizer.addEventListener("pointerdown",function(e){
+    e.preventDefault();var startY=e.clientY,startH=partsbar.offsetHeight;
+    function move(ev){partsbar.style.height=Math.max(80,startH-(ev.clientY-startY))+"px";}
+    function up(){document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);}
+    document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
+  });
+
+  // ---- Global search ----
+  $("#globalSearch").addEventListener("input",function(){
+    var q=this.value.toLowerCase().trim();
+    if(!q||!DATA){document.querySelectorAll("#ptbody tr").forEach(function(tr){tr.style.display="";});return;}
+    document.querySelectorAll("#ptbody tr").forEach(function(tr){
+      var txt=(tr.textContent||"").toLowerCase();
+      tr.style.display=txt.indexOf(q)>=0?"":"none";
+    });
+  });
+
 })();
 </script>
 </body>
