@@ -286,6 +286,7 @@
       </div>
 
       <button class="btn ghost" id="btnFit" title="Encuadrar">Encuadrar</button>
+      <button class="btn ghost" id="btnChat" title="Chat IA — preguntar sobre el manual" style="background:#1b2733">💬 Chat IA</button>
       <button class="btn pub editor-only" id="btnPublish" title="Genera el archivo del proyecto para compartir">⇧ Publicar proyecto</button>
     </div>
   </header>
@@ -347,6 +348,46 @@
     </aside>
   </main>
 </div>
+
+<!-- Chat IA Panel -->
+<div id="chatPanel" class="chatPanel hidden">
+  <div class="chatHead">
+    <span class="chatTitle">💬 Chat IA · Manual</span>
+    <select id="chatModel" class="chatModelSel"><option value="qwen3:8b">qwen3 (rápido)</option><option value="gemma4:latest">gemma4 (potente)</option></select>
+    <button class="chatClose" id="chatClose">✕</button>
+  </div>
+  <div class="chatMsgs" id="chatMsgs">
+    <div class="chatMsg bot">Carga un PDF y pregúntame lo que quieras sobre el manual. Busco la respuesta en el documento y te digo en qué página está.</div>
+  </div>
+  <div class="chatInput">
+    <input type="text" id="chatQ" placeholder="Ej: ¿Cuál es el torque del perno 0004?" />
+    <button class="chatSend" id="chatSend">▶</button>
+  </div>
+  <div class="chatStatus" id="chatStatus"></div>
+</div>
+<style>
+  .chatPanel{position:fixed;right:0;top:0;bottom:0;width:380px;max-width:100vw;background:#0e151d;border-left:2px solid #28353f;z-index:50;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.5)}
+  .chatHead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #28353f;background:#151f2a}
+  .chatTitle{font-family:"Space Grotesk",sans-serif;font-size:14px;font-weight:700;color:#e8eef4;flex:1}
+  .chatModelSel{background:#0e151d;border:1px solid #28353f;color:#8aa0b3;border-radius:6px;padding:4px 8px;font-size:11px;font-family:inherit}
+  .chatClose{background:transparent;border:1px solid #28353f;color:#8aa0b3;border-radius:6px;padding:4px 10px;font-size:16px;cursor:pointer}
+  .chatClose:hover{color:#ff8080;border-color:#5a2a2a}
+  .chatMsgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .chatMsg{padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.55;max-width:92%;word-wrap:break-word}
+  .chatMsg.bot{background:#1b2733;color:#e8eef4;align-self:flex-start;border:1px solid #28353f}
+  .chatMsg.user{background:#2f6fb0;color:#fff;align-self:flex-end;border:1px solid #3b82f6}
+  .chatMsg .pageRef{display:inline-block;background:#241a08;color:#ff9e2c;border-radius:4px;padding:1px 6px;font-size:11px;font-family:"JetBrains Mono",monospace;cursor:pointer;margin:2px 2px}
+  .chatMsg .pageRef:hover{background:#4a370f}
+  .chatMsg pre{background:#0e151d;border:1px solid #28353f;border-radius:6px;padding:8px;font-size:11.5px;overflow-x:auto;margin:6px 0;font-family:"JetBrains Mono",monospace;color:#8fd4ff}
+  .chatInput{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #28353f;background:#151f2a}
+  .chatInput input{flex:1;background:#0e151d;border:1px solid #28353f;color:#e8eef4;border-radius:8px;padding:10px 12px;font-size:13.5px;font-family:inherit}
+  .chatInput input:focus{outline:none;border-color:#ff9e2c}
+  .chatSend{background:linear-gradient(180deg,#ffab45,#ff9e2c);color:#241300;border:1px solid #e98a12;border-radius:8px;padding:10px 16px;font-size:16px;font-weight:700;cursor:pointer}
+  .chatSend:hover{background:linear-gradient(180deg,#ffb75c,#ffa634)}
+  .chatSend:disabled{opacity:.5;cursor:not-allowed}
+  .chatStatus{padding:6px 14px;font-size:11px;color:#5f7386;font-family:"JetBrains Mono",monospace;min-height:20px}
+  .chatPanel.hidden{display:none!important}
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -728,21 +769,59 @@
   function updateOverlay(){
     const w=stage.clientWidth,h=stage.clientHeight;
     if(!showTags){if(leaders.childNodes.length)leaders.innerHTML="";return;}
-    const cx=w/2,cy=h/2,R=Math.max(46,Math.min(w,h)*0.11);
-    const proj=parts.map(p=>{const wc=worldCentroid(p).clone().project(camera);
-      return {p,sx:(wc.x*0.5+0.5)*w,sy:(-wc.y*0.5+0.5)*h,z:wc.z};}).sort((a,b)=>b.z-a.z);
+    const n=parts.length;
+    // Auto-size: smaller labels when many parts
+    const badgeH=n>80?16:n>40?18:22;
+    const fontSize=n>80?9:n>40?10:12;
+    const dotR=n>80?1.6:n>40?2:2.4;
+    const labelOffset=n>80?14:n>40?20:30;
+
+    const proj=parts.map(p=>{
+      const wc=worldCentroid(p).clone().project(camera);
+      return {p,sx:(wc.x*0.5+0.5)*w,sy:(-wc.y*0.5+0.5)*h,z:wc.z};
+    }).sort((a,b)=>b.z-a.z);
+
+    // Simple collision avoidance: push overlapping labels apart
+    const labels=proj.map(o=>{
+      const bw=Math.max(22,6+o.p.id.length*(fontSize*0.7));
+      return {o,lx:o.sx-bw/2,ly:o.sy-badgeH-8,w:bw,h:badgeH};
+    });
+    // Push apart overlapping labels (2 passes)
+    for(let pass=0;pass<3;pass++){
+      for(let i=0;i<labels.length;i++){
+        for(let j=i+1;j<labels.length;j++){
+          const a=labels[i],b=labels[j];
+          const ox=Math.min(a.lx+a.w,b.lx+b.w)-Math.max(a.lx,b.lx);
+          const oy=Math.min(a.ly+a.h,b.ly+b.h)-Math.max(a.ly,b.ly);
+          if(ox>0&&oy>0){
+            const push=oy/2+1;
+            if(a.ly<b.ly){a.ly-=push;b.ly+=push;}
+            else{a.ly+=push;b.ly-=push;}
+          }
+        }
+      }
+    }
+    // Clamp to viewport
+    labels.forEach(l=>{
+      l.lx=Math.max(2,Math.min(w-l.w-2,l.lx));
+      l.ly=Math.max(2,Math.min(h-l.h-2,l.ly));
+    });
+
     let out="";
-    proj.forEach(o=>{
-      const {p,sx,sy}=o;let ang=Math.atan2(sy-cy,sx-cx);if(!isFinite(ang))ang=0;
-      let bx=sx+Math.cos(ang)*R,by=sy+Math.sin(ang)*R;
-      bx=Math.max(24,Math.min(w-24,bx));by=Math.max(16,Math.min(h-14,by));
-      const sel=(p.id===selectedId),stroke=sel?"#2f6fb0":"#ff9e2c",mk=sel?"url(#arwSel)":"url(#arw)";
-      const bw=Math.max(30,12+p.id.length*8);
-      out+=`<line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${stroke}" stroke-width="${sel?2.2:1.5}" marker-end="${mk}"/>`
-        +`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${sel?3.4:2.4}" fill="${stroke}"/>`
-        +`<g class="badge" data-id="${p.id}" transform="translate(${(bx-bw/2).toFixed(1)},${(by-11).toFixed(1)})">`
-        +`<rect width="${bw}" height="22" rx="6" fill="${sel?'#2f6fb0':'#241a08'}" stroke="${stroke}" stroke-width="1.4"/>`
-        +`<text x="${bw/2}" y="15" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600" fill="${sel?'#fff':'#ffd28a'}">${p.id}</text></g>`;
+    labels.forEach(l=>{
+      const {o}=l;
+      const {p,sx,sy}=o;
+      const sel=(p.id===selectedId);
+      const stroke=sel?"#2f6fb0":"#ff9e2c";
+      const mk=sel?"url(#arwSel)":"url(#arw)";
+      const bx=l.lx,by=l.ly;
+      const lineW=sel?2:n>80?0.8:1.2;
+      const opacity=sel?1:(n>60?0.7:0.9);
+      out+=`<line x1="${(bx+l.w/2).toFixed(1)}" y1="${(by+l.h).toFixed(1)}" x2="${sx.toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${stroke}" stroke-width="${lineW}" opacity="${opacity}" marker-end="${mk}"/>`
+        +`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${sel?3:dotR}" fill="${stroke}"/>`
+        +`<g class="badge" data-id="${p.id}" transform="translate(${bx.toFixed(1)},${by.toFixed(1)})" opacity="${opacity}">`
+        +`<rect width="${l.w}" height="${l.h}" rx="${badgeH>18?6:4}" fill="${sel?'#2f6fb0':'#241a08'}" stroke="${stroke}" stroke-width="${sel?1.4:0.8}"/>`
+        +`<text x="${l.w/2}" y="${l.h*0.72}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="${fontSize}" font-weight="600" fill="${sel?'#fff':'#ffd28a'}">${p.id}</text></g>`;
     });
     leaders.innerHTML=out;
   }
@@ -1285,17 +1364,36 @@
   async function autoDetectBalloons(silent){
     if(!pdfDoc||!curPage||!curViewport)return;
     try{
+      // ---- Step 0: Classify this page (table vs drawing) ----
+      const textItems=(pdfText&&pdfText.items||[]).filter(i=>i.str&&i.str.trim());
+      const totalText=textItems.map(i=>i.str).join("").length;
+      const hasTableHeaders=textItems.some(i=>/Codice|Código|Part No|Description|Denominación|Descripción|Q\.tà|Cant\.|Item/.test(i.str));
+      
       const raw=await detectImageBoxes(curPage,curViewport);
       const pageArea=curViewport.width*curViewport.height,minDim=Math.min(curViewport.width,curViewport.height);
       let boxes=dedupeBoxes(raw).filter(b=>b.w>minDim*0.025&&b.h>minDim*0.025&&(b.w*b.h)<pageArea*0.8);
+      
+      // Separate large images (actual drawings) from small ones (logos, icons)
+      const largeBoxes=boxes.filter(b=>(b.w*b.h)>pageArea*0.05);
+      const isTablePage=hasTableHeaders&&totalText>300&&largeBoxes.length===0;
+      
+      if(isTablePage){
+        // This page is a BOM table, not a drawing — don't place balloons
+        markers=[];render2DOverlay();render2DBOM();
+        // Still auto-fill from this page's table data for future use
+        autoFill2D(true);
+        if(!silent){/* silently skip — user will navigate to the drawing page */}
+        return;
+      }
+
       boxes=sortReadingOrder(boxes);
       const labels=extractCalloutLabels(pdfText,curViewport);
       let drawLabels=labels.filter(l=>!(l.y>img2.h*0.80 && l.x>img2.w*0.45));
       drawLabels=filterAlignedLabels(drawLabels);
 
-      // ---- STRATEGY 1: photos with text labels (Filtec-style catalogs) ----
-      if(boxes.length){
-        const assigned=assignBalloonIds(boxes,drawLabels);
+      // ---- STRATEGY 1: photos with text labels (catalogs with part photos) ----
+      if(largeBoxes.length>1){
+        const assigned=assignBalloonIds(sortReadingOrder(largeBoxes),drawLabels);
         markers=assigned.map(r=>({
           id:r.id,
           x:clamp01(((r.box.x0+r.box.x1)/2)/img2.w),
@@ -1307,7 +1405,7 @@
         return;
       }
 
-      // ---- STRATEGY 2: extractable text callouts (some CAD PDFs) ----
+      // ---- STRATEGY 2: Drawing page with extractable callout numbers ----
       if(drawLabels.length){
         const seen=new Set();markers=[];
         drawLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
@@ -1319,24 +1417,48 @@
         return;
       }
 
-      // ---- STRATEGY 3: OCR fallback (Sidel/Krones vector-drawn callouts) ----
-      busy(true,"Texto no extraíble — activando reconocimiento visual (OCR)…");
-      const ocrLabels=await ocrDetectCallouts();
-      if(ocrLabels.length){
-        const seen=new Set();markers=[];
-        ocrLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
-          markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
-        });
-        markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
-        render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
-        countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+      // ---- STRATEGY 3: Single large drawing (like SIPA) — no callouts in text ----
+      if(largeBoxes.length===1&&totalText<100){
+        // This is a pure drawing page — don't auto-detect, let user place manually
+        // But try OCR first
+        markers=[];render2DOverlay();render2DBOM();
+        busy(true,"Página de dibujo sin texto — activando OCR…");
+        const ocrLabels=await ocrDetectCallouts();
+        if(ocrLabels.length){
+          const seen=new Set();
+          ocrLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
+            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
+          });
+          markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
+          render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
+          countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+          return;
+        }
+        if(!silent){}// silent — user sees the drawing and can add balloons manually
         return;
       }
 
-      // ---- Nothing found ----
+      // ---- STRATEGY 4: OCR fallback (Sidel/Krones vector-drawn callouts) ----
+      if(!largeBoxes.length&&!drawLabels.length&&totalText<200){
+        busy(true,"Texto no extraíble — activando OCR…");
+        const ocrLabels=await ocrDetectCallouts();
+        if(ocrLabels.length){
+          const seen=new Set();markers=[];
+          ocrLabels.forEach(l=>{if(seen.has(l.num))return;seen.add(l.num);
+            markers.push({id:l.num,x:clamp01(l.x/img2.w),y:clamp01(l.y/img2.h),text:"",parte:"",sap:""});
+          });
+          markers.sort((a,b)=>(+a.id||0)-(+b.id||0));
+          render2DOverlay();render2DBOM();autoFill2D(true);saveNow2();
+          countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
+          return;
+        }
+      }
+
+      // ---- Nothing useful found ----
       markers=[];render2DOverlay();render2DBOM();
-      if(!silent)alert("No encontré callouts en esta página. Toca sobre el dibujo para agregar globos a mano.");
-    }catch(err){console.error(err);if(!silent)alert("No pude detectar piezas automáticamente.\n"+(err.message||err));}
+      if(!silent&&totalText>200){/* table page, don't alert */}
+      else if(!silent)alert("No encontré callouts en esta página. Toca sobre el dibujo para agregar globos a mano.");
+    }catch(err){console.error(err);if(!silent)alert("Error en detección: "+(err.message||err));}
   }
   function reDetectBalloons(){
     if(!pdfDoc)return;
@@ -1854,6 +1976,120 @@
   initThree();
   if(projUrl){loadProjectFromUrl(projUrl);}
   else if(readOnly){applyReadOnlyUI();}
+
+  // ===== CHAT IA con Ollama =====
+  const OLLAMA_URL="http://localhost:11434";
+  let pdfTextPages={};
+  let chatHistory=[];
+
+  $("#btnChat").onclick=()=>{
+    const p=$("#chatPanel");
+    p.classList.toggle("hidden");
+    if(!p.classList.contains("hidden"))$("#chatQ").focus();
+  };
+  $("#chatClose").onclick=()=>$("#chatPanel").classList.add("hidden");
+
+  async function extractAllPdfText(){
+    if(!pdfDoc)return;
+    const status=$("#chatStatus");
+    status.textContent="Extrayendo texto del PDF…";
+    pdfTextPages={};
+    for(let pn=1;pn<=pdfDoc.numPages;pn++){
+      if(pn%20===0)status.textContent="Extrayendo texto… página "+pn+"/"+pdfDoc.numPages;
+      try{
+        const page=await pdfDoc.getPage(pn);
+        const tc=await page.getTextContent();
+        const txt=tc.items.map(i=>i.str||"").join(" ").replace(/\s+/g," ").trim();
+        if(txt.length>20)pdfTextPages[pn]=txt;
+      }catch(e){}
+    }
+    status.textContent=Object.keys(pdfTextPages).length+" páginas con texto extraído.";
+  }
+
+  function searchRelevantPages(query,maxPages){
+    maxPages=maxPages||8;
+    const words=query.toLowerCase().replace(/[^\w\sáéíóúñü]/g,"").split(/\s+/).filter(w=>w.length>2);
+    if(!words.length)return [];
+    const scores=[];
+    Object.entries(pdfTextPages).forEach(function(entry){
+      const pn=entry[0],txt=entry[1];
+      const low=txt.toLowerCase();
+      let score=0;
+      words.forEach(function(w){if(low.indexOf(w)>=0)score+=10;score+=(low.split(w).length-1);});
+      if(score>0)scores.push({page:+pn,score,text:txt});
+    });
+    scores.sort(function(a,b){return b.score-a.score;});
+    return scores.slice(0,maxPages);
+  }
+
+  function buildPrompt(question,relevantPages){
+    var ctx="";
+    relevantPages.forEach(function(p){ctx+="--- PÁGINA "+p.page+" ---\n"+p.text.substring(0,2000)+"\n\n";});
+    var msgs=[
+      {role:"system",content:"Eres un asistente técnico de mantenimiento industrial. El usuario te pregunta sobre un manual técnico en PDF. Responde SIEMPRE en español. Cuando cites información, indica el número de página entre corchetes, por ejemplo [pág. 14]. Si no encuentras la respuesta en el texto proporcionado, dilo honestamente. Sé conciso y directo.\n\nContenido del manual (páginas relevantes):\n"+ctx}
+    ];
+    chatHistory.slice(-6).forEach(function(m){msgs.push(m);});
+    msgs.push({role:"user",content:question});
+    return msgs;
+  }
+
+  async function sendToOllama(messages){
+    var model=$("#chatModel").value;
+    var resp=await fetch(OLLAMA_URL+"/api/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:model,messages:messages,stream:false})
+    });
+    if(!resp.ok){var errText=await resp.text().catch(function(){return "";});throw new Error("Ollama error "+resp.status+". "+errText);}
+    var data=await resp.json();
+    return (data.message&&data.message.content)||"(sin respuesta)";
+  }
+
+  function addChatMsg(text,role){
+    var msgs=$("#chatMsgs");
+    var d=document.createElement("div");d.className="chatMsg "+role;
+    var html=escapeHtml(text).replace(/\[pág\.?\s*(\d+)\]/gi,function(m,num){
+      return '<span class="pageRef" data-page="'+num+'">pág. '+num+'</span>';
+    });
+    html=html.replace(/\n/g,"<br>");
+    d.innerHTML=html;
+    d.querySelectorAll(".pageRef").forEach(function(el){
+      el.addEventListener("click",function(){
+        var pn=+el.getAttribute("data-page");
+        if(pdfDoc&&pn>=1&&pn<=pdfDoc.numPages){gotoPage(pn);$("#chatPanel").classList.add("hidden");}
+      });
+    });
+    msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  async function handleChatSend(){
+    var input=$("#chatQ");var q=input.value.trim();if(!q)return;input.value="";
+    if(!pdfDoc){addChatMsg("Primero carga un PDF para que pueda responder sobre su contenido.","bot");return;}
+    if(!Object.keys(pdfTextPages).length){
+      addChatMsg("Extrayendo texto del PDF, un momento…","bot");
+      await extractAllPdfText();
+      if(!Object.keys(pdfTextPages).length){addChatMsg("No pude extraer texto de este PDF.","bot");return;}
+    }
+    addChatMsg(q,"user");chatHistory.push({role:"user",content:q});
+    var status=$("#chatStatus"),sendBtn=$("#chatSend");
+    sendBtn.disabled=true;status.textContent="Buscando páginas relevantes…";
+    try{
+      var relevant=searchRelevantPages(q);
+      if(!relevant.length){var ans="No encontré páginas relevantes para esa pregunta. Intenta con otras palabras.";addChatMsg(ans,"bot");chatHistory.push({role:"assistant",content:ans});return;}
+      status.textContent="Consultando IA ("+$("#chatModel").value+")…";
+      var messages=buildPrompt(q,relevant);
+      var answer=await sendToOllama(messages);
+      addChatMsg(answer,"bot");chatHistory.push({role:"assistant",content:answer});
+      status.textContent="Listo. Páginas consultadas: "+relevant.map(function(r){return r.page;}).join(", ");
+    }catch(err){
+      var hint="";
+      if(err.message&&err.message.indexOf("Failed to fetch")>=0)hint="\n\nOllama no está corriendo, o falta configurar CORS.\n\nPara activar CORS en Windows:\n1. Abre CMD como administrador\n2. Escribe: setx OLLAMA_ORIGINS \"*\"\n3. Reinicia Ollama";
+      addChatMsg("Error: "+err.message+hint,"bot");status.textContent="Error de conexión.";
+    }finally{sendBtn.disabled=false;}
+  }
+  $("#chatSend").onclick=handleChatSend;
+  $("#chatQ").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey)handleChatSend();});
+
 })();
 </script>
 </body>
