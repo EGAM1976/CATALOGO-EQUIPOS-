@@ -97,20 +97,18 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 .searchResult .sr-path{font-size:11px;color:var(--faint)}
 .searchResult .sr-code{font-family:"JetBrains Mono",monospace;color:var(--accent-2);font-size:12px}
 
-/* Split view: image left, parts right */
-.splitView{display:flex;flex:1;min-height:0;overflow:hidden}
-.splitLeft{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.splitLeft .viewer{flex:1;display:flex;flex-direction:column}
-.splitDivider{width:5px;background:var(--line);cursor:ew-resize;flex:none;transition:.15s}
-.splitDivider:hover{background:var(--accent)}
-.splitRight{width:380px;flex:none;display:flex;flex-direction:column;background:#fff;border-left:1px solid var(--line);overflow:hidden}
-.splitRight .partsbar-head{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex:none;background:var(--panel)}
-.splitRight .partsbar-head h3{font-size:13px;font-weight:700;margin:0;color:var(--accent)}
-@media(max-width:900px){
-  .splitView{flex-direction:column}
-  .splitDivider{width:auto;height:5px;cursor:ns-resize}
-  .splitRight{width:auto;height:250px}
-}
+/* Parts bar bottom */
+.partsbar{height:260px;flex:none;border-top:2px solid var(--accent);background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.partsbar-head{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);flex:none;background:var(--panel)}
+.partsbar-head h3{font-size:13px;font-weight:700;margin:0}
+.partsbar-head .pcount{font-size:11px;color:var(--faint);font-family:"JetBrains Mono",monospace}
+.partsbar-head .spacer{flex:1}
+.ptable-wrap{flex:1;overflow:auto}
+.resizer{height:5px;background:var(--line);cursor:ns-resize;flex:none}
+.resizer:hover{background:var(--accent)}
+
+/* Split view (kept for compat) */
+
 
 .hidden{display:none!important}
 @media(max-width:700px){.tree{width:220px} .partsbar{height:180px}}
@@ -185,42 +183,51 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         <button class="tab" data-tab="busqueda">🔍 Búsqueda</button>
       </div>
 
-      <!-- Tab: Catálogo de piezas — side by side: image left, table right -->
-      <div class="tabContent active" id="tabPiezas">
-        <div class="splitView">
-          <!-- Left: drawing -->
-          <div class="splitLeft">
-            <div class="viewer" id="viewer">
-              <div class="viewer-toolbar" id="viewToolbar">
-                <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
-                <button class="abtn" id="vZoomOut">−</button>
-                <button class="abtn" id="vZoomIn">+</button>
-                <button class="abtn" id="vFit">Encuadrar</button>
-                <button class="abtn" id="vPrev">‹</button>
-                <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
-                <button class="abtn" id="vNext">›</button>
-              </div>
-              <div class="viewarea" id="viewarea">
-                <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
-              </div>
-              <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
-            </div>
+      <!-- Tab: Catálogo de piezas — image top, table bottom like Krones eCat -->
+      <div class="tabContent active" id="tabPiezas" style="display:flex;flex-direction:column">
+        <div class="viewer" id="viewer" style="flex:1;min-height:0">
+          <div class="viewer-toolbar" id="viewToolbar">
+            <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
+            <button class="abtn" id="vZoomOut">−</button>
+            <button class="abtn" id="vZoomIn">+</button>
+            <button class="abtn" id="vFit">Encuadrar</button>
+            <button class="abtn" id="vPrev">‹</button>
+            <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
+            <button class="abtn" id="vNext">›</button>
           </div>
-          <!-- Right: parts table -->
-          <div class="splitDivider" id="splitDivider"></div>
-          <div class="splitRight" id="splitRight">
-            <div class="partsbar-head">
-              <h3 class="disp">Repuestos</h3>
-              <span class="pcount" id="pcount"></span>
-              <span class="spacer"></span>
-              <button class="abtn" id="vCsv" style="font-size:10px;padding:4px 8px">⬇ CSV</button>
-            </div>
-            <div class="ptable-wrap" style="flex:1;overflow:auto">
-              <table class="ptable">
-                <thead><tr><th style="width:50px">Pos.</th><th style="width:110px">N° artículo</th><th>Denominación</th><th style="width:90px">SAP</th></tr></thead>
-                <tbody id="ptbody"></tbody>
-              </table>
-            </div>
+          <div class="viewarea" id="viewarea">
+            <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
+          </div>
+          <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
+        </div>
+        <div class="resizer" id="resizer"></div>
+        <div class="partsbar" id="partsbar">
+          <div class="partsbar-head">
+            <h3 class="disp" style="color:var(--accent)">Repuestos</h3>
+            <span class="pcount" id="pcount"></span>
+            <span class="spacer"></span>
+            <button class="abtn" id="vCsv" style="font-size:10px;padding:4px 8px">⬇ CSV</button>
+          </div>
+          <div class="ptable-wrap">
+            <table class="ptable">
+              <thead><tr>
+                <th style="width:45px">Pos</th>
+                <th style="width:40px">Cant</th>
+                <th style="width:35px">UM</th>
+                <th style="width:55px">Ind Uso</th>
+                <th style="width:100px">N° Parte</th>
+                <th style="width:100px">N° Parte Suc.</th>
+                <th style="width:100px">SAP 1 (Orig)</th>
+                <th style="width:100px">SAP 2 (Nac)</th>
+                <th>Denominación Fab.</th>
+                <th>Denominación Com.</th>
+                <th style="width:70px">Frec Mtto</th>
+                <th style="width:55px">Cant Mtto</th>
+                <th style="width:90px">SAP Equipo</th>
+                <th style="width:90px">Componente</th>
+              </tr></thead>
+              <tbody id="ptbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -437,7 +444,20 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     $("#pcount").textContent=vMarkers.length+" piezas";
     vMarkers.forEach(function(m){
       var tr=document.createElement("tr");tr.setAttribute("data-id",m.id);
-      tr.innerHTML='<td class="pos">'+esc(m.id)+'</td><td class="code">'+esc(m.parte)+'</td><td>'+esc(m.text||"—")+'</td><td class="sap">'+esc(m.sap)+'</td>';
+      tr.innerHTML='<td class="pos">'+esc(m.id)+'</td>'
+        +'<td>'+esc(m.cantPos||'')+'</td>'
+        +'<td>'+esc(m.um||'')+'</td>'
+        +'<td>'+esc(m.indUso||'')+'</td>'
+        +'<td class="code">'+esc(m.parte||'')+'</td>'
+        +'<td class="code">'+esc(m.parteSuc||'')+'</td>'
+        +'<td class="sap">'+esc(m.sap1||'')+'</td>'
+        +'<td class="sap" style="color:#28a745">'+esc(m.sap2||'')+'</td>'
+        +'<td>'+esc(m.denomFab||'')+'</td>'
+        +'<td>'+esc(m.denomCom||'')+'</td>'
+        +'<td>'+esc(m.freqMtto||'')+'</td>'
+        +'<td>'+esc(m.cantMtto||'')+'</td>'
+        +'<td class="code">'+esc(m.sapEquipo||'')+'</td>'
+        +'<td>'+esc(m.componente||'')+'</td>';
       tr.onclick=function(){selectPart(m.id);};
       tb.appendChild(tr);
     });
@@ -452,7 +472,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // ---- CSV export ----
   $("#vCsv").onclick=function(){
     if(!vMarkers.length)return;
-    var csv="\ufeffPos,N_Parte,Descripcion,Codigo_SAP\n";
+    var csv="\ufeffPos,Cant,UM,Ind_Uso,N_Parte,N_Parte_Suc,SAP1_Original,SAP2_Nacional,Denom_Fabricante,Denom_Comercial,Freq_Mtto,Cant_Mtto,SAP_Equipo,Componente\n";
     vMarkers.forEach(function(m){
       csv+=m.id+","+csvCell(m.parte)+","+csvCell(m.text)+","+csvCell(m.sap)+"\n";
     });
@@ -461,12 +481,12 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   };
   function csvCell(s){s=(s||"").replace(/"/g,'""');return /[",\n]/.test(s)?'"'+s+'"':s;}
 
-  // ---- Split divider (resize parts panel) ----
-  var splitDiv=$("#splitDivider"),splitRight=$("#splitRight");
-  if(splitDiv){
-    splitDiv.addEventListener("pointerdown",function(e){
-      e.preventDefault();var startX=e.clientX,startW=splitRight.offsetWidth;
-      function move(ev){splitRight.style.width=Math.max(200,Math.min(700,startW-(ev.clientX-startX)))+"px";fitView();}
+  // ---- Resizer (drag to resize parts panel) ----
+  var resizer=$("#resizer"),partsbar=$("#partsbar");
+  if(resizer&&partsbar){
+    resizer.addEventListener("pointerdown",function(e){
+      e.preventDefault();var startY=e.clientY,startH=partsbar.offsetHeight;
+      function move(ev){partsbar.style.height=Math.max(100,startH-(ev.clientY-startY))+"px";}
       function up(){document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);}
       document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
     });
