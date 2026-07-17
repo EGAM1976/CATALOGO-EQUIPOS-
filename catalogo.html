@@ -100,6 +100,21 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 .searchResult .sr-path{font-size:11px;color:var(--faint)}
 .searchResult .sr-code{font-family:"JetBrains Mono",monospace;color:#8fd4ff;font-size:12px}
 
+/* Split view: image left, parts right */
+.splitView{display:flex;flex:1;min-height:0;overflow:hidden}
+.splitLeft{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.splitLeft .viewer{flex:1;display:flex;flex-direction:column}
+.splitDivider{width:5px;background:var(--line);cursor:ew-resize;flex:none;transition:.15s}
+.splitDivider:hover{background:var(--accent)}
+.splitRight{width:380px;flex:none;display:flex;flex-direction:column;background:var(--panel);overflow:hidden}
+.splitRight .partsbar-head{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex:none}
+.splitRight .partsbar-head h3{font-size:13px;font-weight:700;margin:0}
+@media(max-width:900px){
+  .splitView{flex-direction:column}
+  .splitDivider{width:auto;height:5px;cursor:ns-resize}
+  .splitRight{width:auto;height:250px}
+}
+
 .hidden{display:none!important}
 @media(max-width:700px){.tree{width:220px} .partsbar{height:180px}}
 </style>
@@ -171,36 +186,42 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         <button class="tab" data-tab="busqueda">🔍 Búsqueda</button>
       </div>
 
-      <!-- Tab: Catálogo de piezas -->
+      <!-- Tab: Catálogo de piezas — side by side: image left, table right -->
       <div class="tabContent active" id="tabPiezas">
-        <div class="viewer" id="viewer">
-          <div class="viewer-toolbar" id="viewToolbar">
-            <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
-            <button class="abtn" id="vZoomOut">−</button>
-            <button class="abtn" id="vZoomIn">+</button>
-            <button class="abtn" id="vFit">Encuadrar</button>
-            <button class="abtn" id="vPrev">‹</button>
-            <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
-            <button class="abtn" id="vNext">›</button>
-            <button class="abtn" id="vCsv">⬇ CSV</button>
+        <div class="splitView">
+          <!-- Left: drawing -->
+          <div class="splitLeft">
+            <div class="viewer" id="viewer">
+              <div class="viewer-toolbar" id="viewToolbar">
+                <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
+                <button class="abtn" id="vZoomOut">−</button>
+                <button class="abtn" id="vZoomIn">+</button>
+                <button class="abtn" id="vFit">Encuadrar</button>
+                <button class="abtn" id="vPrev">‹</button>
+                <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
+                <button class="abtn" id="vNext">›</button>
+              </div>
+              <div class="viewarea" id="viewarea">
+                <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
+              </div>
+              <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
+            </div>
           </div>
-          <div class="viewarea" id="viewarea">
-            <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
-          </div>
-          <div class="viewer-empty" id="viewerEmpty">← Selecciona una lámina del árbol para ver el despiece</div>
-        </div>
-        <div class="resizer" id="resizer"></div>
-        <div class="partsbar" id="partsbar">
-          <div class="partsbar-head">
-            <h3 class="disp">Repuestos</h3>
-            <span class="pcount" id="pcount"></span>
-            <span class="spacer"></span>
-          </div>
-          <div class="ptable-wrap">
-            <table class="ptable">
-              <thead><tr><th style="width:60px">Pos.</th><th style="width:140px">N° de artículo</th><th>Denominación</th><th style="width:120px">Código SAP</th></tr></thead>
-              <tbody id="ptbody"></tbody>
-            </table>
+          <!-- Right: parts table -->
+          <div class="splitDivider" id="splitDivider"></div>
+          <div class="splitRight" id="splitRight">
+            <div class="partsbar-head">
+              <h3 class="disp">Repuestos</h3>
+              <span class="pcount" id="pcount"></span>
+              <span class="spacer"></span>
+              <button class="abtn" id="vCsv" style="font-size:10px;padding:4px 8px">⬇ CSV</button>
+            </div>
+            <div class="ptable-wrap" style="flex:1;overflow:auto">
+              <table class="ptable">
+                <thead><tr><th style="width:50px">Pos.</th><th style="width:110px">N° artículo</th><th>Denominación</th><th style="width:90px">SAP</th></tr></thead>
+                <tbody id="ptbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -441,14 +462,16 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   };
   function csvCell(s){s=(s||"").replace(/"/g,'""');return /[",\n]/.test(s)?'"'+s+'"':s;}
 
-  // ---- Resizer ----
-  var resizer=$("#resizer"),partsbar=$("#partsbar");
-  resizer.addEventListener("pointerdown",function(e){
-    e.preventDefault();var startY=e.clientY,startH=partsbar.offsetHeight;
-    function move(ev){partsbar.style.height=Math.max(80,startH-(ev.clientY-startY))+"px";}
-    function up(){document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);}
-    document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
-  });
+  // ---- Split divider (resize parts panel) ----
+  var splitDiv=$("#splitDivider"),splitRight=$("#splitRight");
+  if(splitDiv){
+    splitDiv.addEventListener("pointerdown",function(e){
+      e.preventDefault();var startX=e.clientX,startW=splitRight.offsetWidth;
+      function move(ev){splitRight.style.width=Math.max(200,Math.min(700,startW-(ev.clientX-startX)))+"px";fitView();}
+      function up(){document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);}
+      document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
+    });
+  }
 
   // ---- Global search ----
   $("#globalSearch").addEventListener("input",function(){
