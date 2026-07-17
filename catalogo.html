@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#ffffff;--panel:#f5f6f8;--panel-2:#ebedf0;--line:#d4d8dd;--text:#1a1a1a;--muted:#5a6270;--faint:#8c95a0;--accent:#E4002B;--accent-2:#0066CC;--ok:#28a745;--danger:#dc3545}
+:root{--ink:#ffffff;--panel:#f5f6f8;--panel-2:#ebedf0;--line:#d4d8dd;--text:#1a1a1a;--muted:#5a6270;--faint:#8c95a0;--accent:#CC0033;--accent-2:#0066CC;--ok:#28a745;--danger:#dc3545}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:#fff;color:var(--text);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -121,14 +121,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 <!-- Auth gate (same as before) -->
 <div id="authGate" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(180deg,#f7f7f7,#e8e8e8);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
 <div style="max-width:400px;width:100%;text-align:center;background:#fff;border-radius:16px;padding:40px 32px;box-shadow:0 8px 40px rgba(0,0,0,.1)">
-<svg viewBox="0 0 200 80" style="width:180px;margin:0 auto 20px;display:block" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(60,2)">
-    <path d="M20,0 L40,0 L40,20 L60,20 L60,40 L40,40 L40,20 L20,20 Z" fill="#E4002B"/>
-    <path d="M40,20 L60,20 L60,0 L80,0 L80,40 L60,40 L60,20 L40,20 Z" fill="#4A2820"/>
-    <path d="M20,20 L40,20 L40,40 L60,40 L60,60 L40,60 L40,40 L20,40 Z" fill="#4A2820"/>
-    <path d="M40,40 L60,40 L60,20 L80,20 L80,60 L60,60 L60,40 L40,40 Z" fill="#E4002B"/>
+<svg viewBox="0 0 200 120" style="width:160px;margin:0 auto 16px;display:block" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(55,0)">
+    <path d="M45,0 L0,45 L15,60 L45,30 L75,60 L90,45 Z" fill="#CC0033"/>
+    <path d="M45,30 L15,60 L0,45 L-15,60 L30,105 L45,90 Z" fill="#CC0033"/>
+    <path d="M45,30 L75,60 L90,45 L105,60 L60,105 L45,90 Z" fill="#5C2018"/>
+    <path d="M45,60 L90,105 L75,120 L45,90 L15,120 L0,105 Z" fill="#5C2018"/>
   </g>
-  <text x="100" y="75" text-anchor="middle" font-family="'Space Grotesk',Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="1"><tspan fill="#E4002B">ARCA</tspan><tspan fill="#4A2820">CONTINENTAL</tspan></text>
+  <text x="100" y="115" text-anchor="middle" font-family="'Space Grotesk',Arial,sans-serif" font-size="16" font-weight="700" letter-spacing="1.5"><tspan fill="#CC0033">ARCA</tspan><tspan fill="#5C2018">CONTINENTAL</tspan></text>
 </svg>
 <div style="width:60px;height:3px;background:linear-gradient(90deg,#E4002B,#4A2820);margin:0 auto 16px;border-radius:2px"></div>
 <h2 style="font-family:'Space Grotesk','Inter',sans-serif;color:#1a1a1a;font-size:18px;margin:0 0 4px">Catálogo de Repuestos</h2>
@@ -160,16 +160,16 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 <div class="app">
   <!-- Top bar -->
   <div class="topbar">
-    <svg viewBox="0 0 160 50" style="width:130px;flex:none" xmlns="http://www.w3.org/2000/svg">
-      <g transform="translate(0,1) scale(0.55)">
-        <path d="M10,0 L25,0 L25,15 L40,15 L40,30 L25,30 L25,15 L10,15 Z" fill="#E4002B"/>
-        <path d="M25,15 L40,15 L40,0 L55,0 L55,30 L40,30 L40,15 L25,15 Z" fill="#4A2820"/>
-        <path d="M10,15 L25,15 L25,30 L40,30 L40,45 L25,45 L25,30 L10,30 Z" fill="#4A2820"/>
-        <path d="M25,30 L40,30 L40,15 L55,15 L55,45 L40,45 L40,30 L25,30 Z" fill="#E4002B"/>
-      </g>
-      <text x="36" y="20" font-family="'Space Grotesk',Arial,sans-serif" font-size="11" font-weight="700" letter-spacing=".5"><tspan fill="#E4002B">ARCA</tspan><tspan fill="#4A2820">CONTINENTAL</tspan></text>
-      <text x="36" y="33" font-family="'Inter',Arial,sans-serif" font-size="7" fill="#8c95a0" letter-spacing=".3">LINDLEY</text>
-    </svg>
+    <svg viewBox="0 0 180 40" style="width:150px;flex:none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0,2) scale(0.42)">
+    <path d="M45,0 L0,45 L15,60 L45,30 L75,60 L90,45 Z" fill="#CC0033"/>
+    <path d="M45,30 L15,60 L0,45 L-15,60 L30,105 L45,90 Z" fill="#CC0033"/>
+    <path d="M45,30 L75,60 L90,45 L105,60 L60,105 L45,90 Z" fill="#5C2018"/>
+    <path d="M45,60 L90,105 L75,120 L45,90 L15,120 L0,105 Z" fill="#5C2018"/>
+  </g>
+  <text x="48" y="18" font-family="'Space Grotesk',Arial,sans-serif" font-size="12" font-weight="700" letter-spacing=".8"><tspan fill="#CC0033">ARCA</tspan><tspan fill="#5C2018">CONTINENTAL</tspan></text>
+  <text x="48" y="32" font-family="'Inter',Arial,sans-serif" font-size="8" fill="#8c95a0" letter-spacing=".5">LINDLEY</text>
+</svg>
     <div style="width:1px;height:28px;background:var(--line);flex:none"></div>
     <div><h1 class="disp" style="color:var(--text)">Catálogo de Repuestos</h1><span class="sub">Despiece por máquina</span></div>
     <span class="spacer"></span>
