@@ -48,7 +48,7 @@ body{background:#fff;color:var(--text);font-family:"Inter",system-ui,sans-serif;
 .tnode .tlabel.sel{background:#fce8eb;border-left:3px solid var(--accent)}
 .tnode .tarrow{width:14px;text-align:center;color:var(--faint);font-size:10px;flex:none;transition:.15s}
 .tnode .tarrow.open{transform:rotate(90deg)}
-.tnode .ticon{font-size:13px;flex:none}
+.tnode .ticon{display:none}
 .tnode .tname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .tnode .tcount{font-size:10px;color:var(--faint);font-family:"JetBrains Mono",monospace;flex:none}
 .tchildren{padding-left:14px;display:none}
@@ -315,10 +315,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function buildTree(){
     const root=$("#treeContent");root.innerHTML="";
     (DATA.plantas||[]).forEach(pl=>{
-      root.appendChild(makeNode(pl,"🏭","planta",function(){
-        return (pl.zonas||[]).map(zo=>makeNode(zo,"📦","zona",function(){
-          return (zo.lineas||[]).map(li=>makeNode(li,"⚡","línea",function(){
-            return (li.maquinas||[]).map(mq=>makeNode(mq,"⚙","máquina",function(){
+      root.appendChild(makeNode(pl,"▸","planta",function(){
+        return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
+          return (zo.lineas||[]).map(li=>makeNode(li,"▸","línea",function(){
+            return (li.maquinas||[]).map(mq=>makeNode(mq,"▸","máquina",function(){
               const des=mq.despieces||[];
               if(mq.proyecto&&!des.length)des.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
               return des.map(d=>makeDespNode(d,mq));
@@ -349,7 +349,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function makeDespNode(d,mq){
     const div=document.createElement("div");div.className="tnode";
     const label=document.createElement("div");label.className="tlabel desp";
-    const ic=document.createElement("span");ic.className="ticon";ic.textContent="📋";
+    const ic=document.createElement("span");ic.className="ticon";ic.textContent="";
     const nm=document.createElement("span");nm.className="tname";nm.textContent=d.nombre||"Despiece";
     const chip=document.createElement("span");chip.className="tcount";chip.textContent=(d.tipo||"").toUpperCase();
     label.appendChild(ic);label.appendChild(nm);label.appendChild(chip);
