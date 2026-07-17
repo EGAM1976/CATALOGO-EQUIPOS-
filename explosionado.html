@@ -1582,32 +1582,36 @@
         const page=await pdfDoc.getPage(pn);
         const tc=await page.getTextContent();
         const items=tc.items.filter(i=>i.str&&i.str.trim());
-        // Group by Y
         const byY={};
         items.forEach(it=>{
           const y=Math.round(it.transform[5]);
           const x=it.transform[4];
           (byY[y]=byY[y]||[]).push({s:it.str.trim(),x});
         });
-        // Try to find figure code on this page
         const allText=items.map(i=>i.str).join(" ");
-        const figMatch=allText.match(/FIGURA\s+(\d{10,})/);
-        const figCode=figMatch?figMatch[1]:"";
+        // Detect section/figure header
+        const figMatch=allText.match(/FIGURA\s+(\d{5,})/i)||allText.match(/(\d{8,})T_/);
+        const secMatch=allText.match(/^(\d{3})\s/);
+        const figCode=figMatch?figMatch[1]:(secMatch?secMatch[1]:"");
+        // Find section title from first descriptive text on the page
+        const titleMatch=allText.match(/(COPERTURA|PIAZZOLA|BARRIERA|STRUTTURA|SUPPORTA|NASTRO|COLLETTORE|LAVAGGIO|PROTEZIONI|TUBO|INGRANAGGI|VALVOLA|PINZE|IMPIANTO|GRUPPO|PIASTRA|TUBAZIONI)[A-Z\s\-]*/i);
+        const sectionTitle=titleMatch?titleMatch[0].trim():"";
 
         Object.values(byY).forEach(row=>{
           row.sort((a,b)=>a.x-b.x);
           const line=row.map(r=>r.s).join(" ").replace(/\s+/g," ").trim();
-          // Sidel: 0001  03024696801  CUERPO  2
-          let m=line.match(/^(0{0,3}\d{1,4})\s+(\d{5,15})\s+(.+?)\s+(\d{1,3})$/);
-          if(m){
-            partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:+m[4],page:pn,figCode});
-            return;
-          }
-          // Filtec: 1  27591  Right-Hand Valve Plate
+          // SIPA format: 1  20058313  COPERTURA CANALE TAPPI  (or with quantities)
+          let m=line.match(/^(\d{1,4})\s+(\d{5,15})\s+(\d+)\s+(.+?)(?:\s+(\d{1,4}))?$/);
+          if(m){partsDb.push({pos:m[1],codigo:m[2],desc:m[4],qty:+m[5]||0,page:pn,figCode,section:sectionTitle,rev:m[3]});return;}
+          // Sidel format: 0001  03024696801  CUERPO  2
+          m=line.match(/^(0{0,3}\d{1,4})\s+(\d{5,15})\s+(.+?)\s+(\d{1,3})$/);
+          if(m){partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:+m[4],page:pn,figCode,section:sectionTitle});return;}
+          // SIPA simpler: Rif(pos) Codice(code) Rev Desc Qty — or just pos code desc
+          m=line.match(/^(\d{1,4})\s+(\d{5,15})\s+(.+)$/);
+          if(m&&m[3].length>3){partsDb.push({pos:m[1],codigo:m[2],desc:m[3].replace(/\s+\d{1,3}$/,""),qty:0,page:pn,figCode,section:sectionTitle});return;}
+          // Filtec format: 1  27591  Right-Hand Valve Plate
           m=line.match(/^(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9\-\/]*)\s+(.+)$/);
-          if(m){
-            partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:0,page:pn,figCode});
-          }
+          if(m)partsDb.push({pos:m[1],codigo:m[2],desc:m[3],qty:0,page:pn,figCode,section:sectionTitle});
         });
       }
       countEl.textContent=partsDb.length+" repuestos en BD";
@@ -1622,46 +1626,63 @@
       dbListEl.innerHTML='<div class="dbScan">'+(pdfDoc?"Escaneando…":"Carga un PDF para ver la base de datos.")+'</div>';
       return;
     }
-    // Deduplicate by codigo
-    const seen=new Map();
+
+    // Group by page
+    const byPage={};
     partsDb.forEach(p=>{
-      const key=p.codigo+"|"+p.desc;
-      if(!seen.has(key))seen.set(key,{...p,pages:[p.page]});
-      else seen.get(key).pages.push(p.page);
+      (byPage[p.page]=byPage[p.page]||[]).push(p);
     });
-    let entries=[...seen.values()];
-    if(q){
-      entries=entries.filter(p=>
-        p.codigo.toLowerCase().includes(q)||
-        p.desc.toLowerCase().includes(q)||
-        p.pos.toLowerCase().includes(q)
-      );
-    }
+    const pages=Object.keys(byPage).map(Number).sort((a,b)=>a-b);
+
+    let totalShown=0,totalAll=partsDb.length;
     const total=document.createElement("div");total.className="dbTotal";
-    total.textContent=entries.length+" de "+seen.size+" repuestos"+(q?" (filtrado)":"");
     dbListEl.appendChild(total);
 
-    entries.slice(0,200).forEach(p=>{
-      const d=document.createElement("div");d.className="dbEntry";
-      const pages=[...new Set(p.pages)].sort((a,b)=>a-b);
-      d.innerHTML='<div><span class="dbPos">POS '+escapeHtml(p.pos)+'</span> <span class="dbPage">pág '+pages.join(", ")+'</span></div>'
-        +'<div class="dbCode">'+escapeHtml(p.codigo)+'</div>'
-        +'<div class="dbDesc">'+escapeHtml(p.desc)+(p.qty?' <span style="color:var(--faint)">×'+p.qty+'</span>':'')+'</div>';
-      d.onclick=()=>{
-        // Navigate to the page where this part appears
-        const targetPage=pages[0];
-        if(pdfDoc&&targetPage!==pdfPage){
-          gotoPage(targetPage);
-        }
-        switchTab("bom");
+    pages.forEach(pn=>{
+      let items=byPage[pn];
+      // Sort by position number within each page
+      items.sort((a,b)=>(parseInt(a.pos,10)||0)-(parseInt(b.pos,10)||0));
+
+      if(q){
+        items=items.filter(p=>
+          p.codigo.toLowerCase().includes(q)||
+          p.desc.toLowerCase().includes(q)||
+          String(p.pos).includes(q)||
+          (p.section||"").toLowerCase().includes(q)
+        );
+      }
+      if(!items.length)return;
+
+      // Section header
+      const hdr=document.createElement("div");
+      hdr.style.cssText="padding:8px 10px 4px;font-size:11px;font-weight:700;color:var(--accent);font-family:'Space Grotesk',sans-serif;border-top:1px solid var(--line);margin-top:6px;cursor:pointer;display:flex;align-items:center;gap:6px";
+      const sTitle=items[0].section||items[0].figCode||"";
+      hdr.innerHTML='<span style="color:var(--faint);font-family:\'JetBrains Mono\',monospace;font-size:10px">PÁG '+pn+'</span> '
+        +(sTitle?'<span>'+escapeHtml(sTitle)+'</span>':'')
+        +'<span style="flex:1"></span><span style="color:var(--faint);font-size:10px">'+items.length+' pzas</span>';
+      hdr.onclick=function(){
+        if(pdfDoc&&pn!==pdfPage)gotoPage(pn);
       };
-      dbListEl.appendChild(d);
+      dbListEl.appendChild(hdr);
+
+      items.forEach(p=>{
+        totalShown++;
+        const d=document.createElement("div");d.className="dbEntry";
+        d.innerHTML='<div style="display:flex;align-items:center;gap:8px">'
+          +'<span class="dbPos" style="min-width:32px">'+escapeHtml(String(parseInt(p.pos,10)||p.pos))+'</span>'
+          +'<span class="dbCode">'+escapeHtml(p.codigo)+'</span>'
+          +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(p.desc)+'</span>'
+          +(p.qty?'<span style="color:var(--faint);font-size:11px;font-family:\'JetBrains Mono\',monospace">×'+p.qty+'</span>':'')
+          +'</div>';
+        d.onclick=function(){
+          if(pdfDoc&&pn!==pdfPage)gotoPage(pn);
+          switchTab("bom");
+        };
+        dbListEl.appendChild(d);
+      });
     });
-    if(entries.length>200){
-      const more=document.createElement("div");more.className="dbScan";
-      more.textContent="Mostrando 200 de "+entries.length+" — usa el filtro para encontrar más.";
-      dbListEl.appendChild(more);
-    }
+
+    total.textContent=totalShown+" repuestos"+(q?" (filtrado de "+totalAll+")":"")+" · "+pages.length+" hojas";
   }
 
   // Hook filter to also filter DB list
