@@ -247,11 +247,13 @@
     <div class="tools">
       <button class="btn primary editor-only" id="btnOpen">＋ Cargar 3D (STP/STL)</button>
       <button class="btn primary editor-only" id="btnOpenPDF" title="Cargar un PDF y marcar globos sobre el despiece 2D">＋ Cargar PDF</button>
+      <button class="btn primary editor-only" id="btnOpenXls" title="Importar datos de repuestos desde un Excel (.xlsx)" style="background:#28a745;border-color:#1f8c3a">＋ Cargar Excel</button>
       <button class="btn ghost editor-only" id="btnOpenProj" title="Abrir un proyecto .json para seguir editándolo">Abrir proyecto</button>
       <button class="btn pubgh editor-only" id="btnSaveGH" title="Subir este despiece a GitHub automáticamente">☁ Guardar en GitHub</button>
       <button class="btn ghost editor-only" id="btnGHCfg" title="Conectar con GitHub">⚙</button>
       <input type="file" id="file" accept=".stp,.step,.stl,.STP,.STEP,.STL" multiple class="hidden" />
       <input type="file" id="filePdf" accept=".pdf,application/pdf" class="hidden" />
+      <input type="file" id="fileXls" accept=".xlsx,.xls,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" />
       <input type="file" id="fileProj" accept=".json,.explo,application/json" class="hidden" />
 
       <div class="group">
@@ -1893,6 +1895,123 @@
   $("#btnOpen2").onclick=()=>fileInput.click();
   $("#btnOpenPDF").onclick=()=>filePdf.click();
   $("#btnOpenPDF2").onclick=()=>filePdf.click();
+  $("#btnOpenXls").onclick=()=>$("#fileXls").click();
+
+  // ===== Excel Import =====
+  const XLS_SRC="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+  let xlsLoaded=null;
+  function loadXlsLib(){
+    if(xlsLoaded)return xlsLoaded;
+    xlsLoaded=new Promise(function(res,rej){
+      if(window.XLSX)return res();
+      var s=document.createElement("script");s.src=XLS_SRC;
+      s.onload=function(){res();};s.onerror=function(){rej(new Error("No se pudo cargar SheetJS"));};
+      document.head.appendChild(s);
+    });
+    return xlsLoaded;
+  }
+  async function loadExcelFile(buffer,name){
+    busy(true,"Cargando librería Excel…");
+    try{
+      await loadXlsLib();
+      busy(true,"Leyendo Excel…");
+      var wb=XLSX.read(new Uint8Array(buffer),{type:"array",cellStyles:true});
+      var sheetNames=wb.SheetNames;
+      // Let user pick sheet if multiple
+      var sheetIdx=0;
+      if(sheetNames.length>1){
+        var choice=prompt("El archivo tiene "+sheetNames.length+" hojas:\\n"+sheetNames.map(function(s,i){return (i+1)+") "+s;}).join("\\n")+"\\n\\nEscribe el número de la hoja:",1);
+        if(choice===null){busy(false);return;}
+        sheetIdx=Math.max(0,Math.min(sheetNames.length-1,(parseInt(choice,10)||1)-1));
+      }
+      var ws=wb.Sheets[sheetNames[sheetIdx]];
+      var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      if(!data.length||data.length<2){alert("La hoja está vacía o no tiene datos.");busy(false);return;}
+      
+      // Find header row (look for keywords)
+      var headerIdx=-1;
+      var colMap={};
+      var keywords={
+        pos:/^pos/i, cantPos:/^cant/i, um:/^um|^unid/i, indUso:/^ind/i,
+        parte:/parte|part.*n|n.*parte|codigo|codice/i, parteSuc:/suces|suc\b/i,
+        sap1:/sap.*1|sap.*orig/i, sap2:/sap.*2|sap.*nac/i,
+        denomFab:/denom.*fab|descri.*fab|denominaci/i, denomCom:/denom.*com|descri.*com|comercial/i,
+        freqMtto:/frec|freq/i, cantMtto:/cant.*mt/i,
+        sapEquipo:/sap.*equi/i, componente:/compon/i
+      };
+      for(var r=0;r<Math.min(10,data.length);r++){
+        var row=data[r];
+        var matches=0;
+        for(var c=0;c<row.length;c++){
+          var cell=String(row[c]||"").trim();
+          for(var key in keywords){
+            if(keywords[key].test(cell)&&!colMap[key]){
+              colMap[key]=c;matches++;
+            }
+          }
+        }
+        if(matches>=2){headerIdx=r;break;}
+      }
+      if(headerIdx<0){
+        // Fallback: assume first row is header, map by position
+        headerIdx=0;
+        var fields=["pos","parte","denomFab","cantPos","um","sap1","sap2","denomCom"];
+        data[0].forEach(function(cell,i){if(i<fields.length)colMap[fields[i]]=i;});
+      }
+      
+      // Parse data rows
+      var parts=[];
+      for(var r=headerIdx+1;r<data.length;r++){
+        var row=data[r];
+        if(!row||!row.length)continue;
+        var obj={};var hasData=false;
+        PART_FIELDS.forEach(function(f){
+          if(colMap[f.key]!==undefined){
+            obj[f.key]=String(row[colMap[f.key]]||"").trim();
+            if(obj[f.key])hasData=true;
+          }else{obj[f.key]="";}
+        });
+        if(hasData)parts.push(obj);
+      }
+      
+      if(!parts.length){alert("No se encontraron datos de repuestos en esta hoja.");busy(false);return;}
+      
+      // Load into markers (2D mode with a blank canvas, or append to existing)
+      if(markers.length&&!confirm("Ya tienes "+markers.length+" piezas. ¿Reemplazar con los "+parts.length+" del Excel?")){busy(false);return;}
+      
+      markers=parts.map(function(p,i){
+        return Object.assign({id:p.pos||String(i+1),x:0.1+Math.random()*0.8,y:0.1+Math.random()*0.8},p);
+      });
+      
+      // If no image loaded, create a blank canvas
+      if(!img2.src||appMode!=="2d"){
+        setMode("2d");
+        img2={w:1200,h:800,src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#f5f6f8"/><text x="600" y="400" text-anchor="middle" font-family="Inter,sans-serif" font-size="20" fill="#8c95a0">'+parts.length+' repuestos importados desde Excel — carga un PDF/imagen para ubicar los globos</text></svg>')};
+        setImage2D();
+      }
+      
+      currentName=name||"excel.xlsx";
+      emptyEl.classList.add("hidden");
+      render2DOverlay();render2DBOM();saveNow2();
+      countEl.textContent=parts.length+" repuestos importados";
+      sheetnote.textContent=name.toUpperCase()+"  ·  "+parts.length+" REPUESTOS  ·  Hoja: "+sheetNames[sheetIdx];
+      
+      busy(false);
+      alert("Importados "+parts.length+" repuestos del Excel.\\n\\nLos campos se llenaron automáticamente. Si necesitas ubicar los globos sobre un dibujo, carga un PDF después — los datos se mantienen.");
+    }catch(err){
+      console.error(err);
+      alert("No se pudo leer el Excel:\\n"+(err.message||err));
+      busy(false);
+    }
+  }
+  
+  $("#fileXls").addEventListener("change",function(e){
+    var f=e.target.files&&e.target.files[0];if(!f)return;
+    var rd=new FileReader();
+    rd.onload=function(){loadExcelFile(rd.result,f.name);};
+    rd.onerror=function(){alert("No se pudo leer el archivo.");};
+    rd.readAsArrayBuffer(f);e.target.value="";
+  });
   $("#btnOpenProj").onclick=()=>fileProj.click();
   $("#btnOpenProj2").onclick=()=>fileProj.click();
 
