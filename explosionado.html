@@ -1959,11 +1959,14 @@
         sap1:/^sap$|sap.*1|sap.*orig/i,
         sap2:/sap.*2|sap.*nac/i,
         denomFab:/descri.*fab|denom.*fab|^descripcion$/i,
-        denomCom:/descri.*com|denom.*com|comercial|descri.*sap/i,
+        denomCom:/descri.*sap|descri.*com|denom.*com|comercial/i,
         freqMtto:/frec|freq/i,
         cantMtto:/cant.*mt/i,
         sapEquipo:/sap.*equi/i,
-        componente:/compon/i
+        componente:/compon/i,
+        pagina:/^pagina$|^pag$/i,
+        posicion:/^posicion$/i,
+        comentarios:/^comentar|^observ|^nota/i
       };
       for(var r=0;r<Math.min(10,data.length);r++){
         var row=data[r];
@@ -1990,6 +1993,8 @@
       for(var r=headerIdx+1;r<data.length;r++){
         var row=data[r];
         if(!row||!row.length)continue;
+        var anyContent=row.some(function(c){return String(c||'').trim();});
+        if(!anyContent)continue;
         var obj={};var hasData=false;
         PART_FIELDS.forEach(function(f){
           if(colMap[f.key]!==undefined){
