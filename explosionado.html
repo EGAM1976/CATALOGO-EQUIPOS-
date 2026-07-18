@@ -1899,16 +1899,34 @@
 
   // ===== Excel Import =====
   const XLS_SRC="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+  const JSZIP_SRC="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
   let xlsLoaded=null;
   function loadXlsLib(){
     if(xlsLoaded)return xlsLoaded;
     xlsLoaded=new Promise(function(res,rej){
-      if(window.XLSX)return res();
-      var s=document.createElement("script");s.src=XLS_SRC;
-      s.onload=function(){res();};s.onerror=function(){rej(new Error("No se pudo cargar SheetJS"));};
-      document.head.appendChild(s);
+      if(window.XLSX&&window.JSZip)return res();
+      var loaded=0,need=2;
+      function check(){loaded++;if(loaded>=need)res();}
+      if(!window.XLSX){var s=document.createElement("script");s.src=XLS_SRC;s.onload=check;s.onerror=function(){rej(new Error("No se pudo cargar SheetJS"));};document.head.appendChild(s);}else check();
+      if(!window.JSZip){var s2=document.createElement("script");s2.src=JSZIP_SRC;s2.onload=check;s2.onerror=function(){rej(new Error("No se pudo cargar JSZip"));};document.head.appendChild(s2);}else check();
     });
     return xlsLoaded;
+  }
+  async function extractExcelImages(buffer){
+    var images=[];
+    try{
+      var zip=await JSZip.loadAsync(buffer);
+      var mediaFiles=Object.keys(zip.files).filter(function(f){return f.startsWith("xl/media/");});
+      for(var i=0;i<mediaFiles.length;i++){
+        var f=mediaFiles[i];
+        var data=await zip.files[f].async("base64");
+        var ext=f.split(".").pop().toLowerCase();
+        var mime=ext==="png"?"image/png":ext==="jpg"||ext==="jpeg"?"image/jpeg":"image/"+ext;
+        images.push({name:f,mime:mime,b64:data,size:data.length});
+      }
+      images.sort(function(a,b){return b.size-a.size;});
+    }catch(e){console.error("Image extraction error:",e);}
+    return images;
   }
   async function loadExcelFile(buffer,name){
     busy(true,"Cargando librería Excel…");
@@ -1984,28 +2002,45 @@
       
       if(!parts.length){alert("No se encontraron datos de repuestos en esta hoja.");busy(false);return;}
       
-      // Load into markers (2D mode with a blank canvas, or append to existing)
+      // Extract images from Excel
+      busy(true,"Extrayendo imágenes del Excel…");
+      var images=await extractExcelImages(buffer);
+      
+      // Load into markers
       if(markers.length&&!confirm("Ya tienes "+markers.length+" piezas. ¿Reemplazar con los "+parts.length+" del Excel?")){busy(false);return;}
       
       markers=parts.map(function(p,i){
-        return Object.assign({id:p.pos||String(i+1),x:0.1+Math.random()*0.8,y:0.1+Math.random()*0.8},p);
+        return Object.assign({id:p.pos||String(i+1),x:0.05+(i%10)*0.09,y:0.05+Math.floor(i/10)*0.09},p);
       });
       
-      // If no image loaded, create a blank canvas
-      if(!img2.src||appMode!=="2d"){
-        setMode("2d");
-        img2={w:1200,h:800,src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#f5f6f8"/><text x="600" y="400" text-anchor="middle" font-family="Inter,sans-serif" font-size="20" fill="#8c95a0">'+parts.length+' repuestos importados desde Excel — carga un PDF/imagen para ubicar los globos</text></svg>')};
-        setImage2D();
+      setMode("2d");emptyEl.classList.add("hidden");
+      
+      if(images.length){
+        // Use largest image as background
+        var mainImg=images[0];
+        var imgSrc="data:"+mainImg.mime+";base64,"+mainImg.b64;
+        var tmpImg=new Image();
+        tmpImg.onload=function(){
+          img2={w:tmpImg.naturalWidth,h:tmpImg.naturalHeight,src:imgSrc};
+          setImage2D();render2DOverlay();render2DBOM();fit2D();
+          busy(false);
+          alert("Importados "+parts.length+" repuestos y "+images.length+" imagen(es) del Excel.\nLos globos están sobre la imagen — arrástralos a la posición correcta.");
+        };
+        tmpImg.onerror=function(){
+          img2={w:1200,h:800,src:""};setImage2D();render2DOverlay();render2DBOM();busy(false);
+        };
+        tmpImg.src=imgSrc;
+      }else{
+        img2={w:1200,h:800,src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#f5f6f8"/><text x="600" y="400" text-anchor="middle" font-family="Inter,sans-serif" font-size="18" fill="#8c95a0">'+parts.length+' repuestos importados — carga un PDF para ubicar los globos</text></svg>')};
+        setImage2D();render2DOverlay();render2DBOM();
+        busy(false);
+        alert("Importados "+parts.length+" repuestos del Excel (sin imágenes).\nCarga un PDF para ubicar los globos sobre el dibujo.");
       }
       
       currentName=name||"excel.xlsx";
-      emptyEl.classList.add("hidden");
-      render2DOverlay();render2DBOM();saveNow2();
-      countEl.textContent=parts.length+" repuestos importados";
       sheetnote.textContent=name.toUpperCase()+"  ·  "+parts.length+" REPUESTOS  ·  Hoja: "+sheetNames[sheetIdx];
-      
-      busy(false);
-      alert("Importados "+parts.length+" repuestos del Excel.\\n\\nLos campos se llenaron automáticamente. Si necesitas ubicar los globos sobre un dibujo, carga un PDF después — los datos se mantienen.");
+      countEl.textContent=parts.length+" repuestos";
+      saveNow2();
     }catch(err){
       console.error(err);
       alert("No se pudo leer el Excel:\\n"+(err.message||err));
