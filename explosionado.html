@@ -1128,14 +1128,22 @@
     const q=(filterEl.value||"").toLowerCase().trim();listEl.innerHTML="";
     countEl.textContent=markers.length+(markers.length===1?" pieza":" piezas");
     markers.forEach(m=>{
-      if(q&&!(m.id.toLowerCase().includes(q)||(m.text||"").toLowerCase().includes(q)||(m.parte||"").toLowerCase().includes(q)||(m.sap||"").toLowerCase().includes(q)))return;
+      if(q){
+        var searchText=m.id.toLowerCase();
+        PART_FIELDS.forEach(function(f){searchText+=" "+(m[f.key]||"").toLowerCase();});
+        if(!searchText.includes(q))return;
+      }
       const row=document.createElement("div");row.className="item"+(m.id===sel2?" sel":"");row.setAttribute("data-id",m.id);
       if(readOnly){
-        const t=m.text?escapeHtml(m.text):"— sin descripción —";
-        const stat=(m.parte||m.sap)?'<div class="stat-line">'+(m.parte?'<span class="pn">'+escapeHtml(m.parte)+'</span>':"")+(m.sap?'<span class="sapv">SAP '+escapeHtml(m.sap)+'</span>':"")+'</div>':"";
+        var fieldsHtml='';
+        PART_FIELDS.forEach(function(f){
+          var val=m[f.key]||"";
+          if(val)fieldsHtml+='<div style="display:flex;gap:4px;font-size:10px;line-height:1.3"><span style="color:var(--faint);min-width:65px">'+f.label+':</span><span>'+escapeHtml(val)+'</span></div>';
+        });
+        if(!fieldsHtml)fieldsHtml='<div class="txt static empty">— sin datos —</div>';
         row.innerHTML='<div class="id mono" style="background:#fce8eb;border-color:#CC0033;color:#CC0033">'+m.id+'</div>'
-          +'<div class="fields">'+stat+'<div class="txt static'+(m.text?"":" empty")+'">'+t+'</div></div>';
-        row.addEventListener("click",()=>select2(m.id,false));
+          +'<div class="fields" style="font-size:11px">'+fieldsHtml+'</div>';
+        row.addEventListener("click",function(){select2(m.id,false);});
       }else{
         row.innerHTML='<div class="fields">'
           +'<div class="rowtop"><input class="id mono idedit" style="background:#fce8eb;border-color:#CC0033;color:#CC0033" value="'+escapeAttr(m.id)+'" /><button class="dupx" title="Duplicar">📋</button><button class="delx" title="Eliminar">✕</button></div>'
