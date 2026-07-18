@@ -157,6 +157,11 @@
            "nombre": "srve0149r00spa MANUAL DE PARTE LLENADORA C5.pdf",
            "tipo": "2D",
            "proyecto": "proyectos/srve0149r00spa_MANUAL_DE_PARTE_LLENADORA_C5_2d.json"
+          },
+          {
+           "nombre": "S2735WF_SpareParts_ESP.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/S2735WF_SpareParts_ESP_2d3.json"
           }
          ]
         }
