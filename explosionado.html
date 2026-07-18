@@ -1932,12 +1932,20 @@
       var headerIdx=-1;
       var colMap={};
       var keywords={
-        pos:/^pos/i, cantPos:/^cant/i, um:/^um|^unid/i, indUso:/^ind/i,
-        parte:/parte|part.*n|n.*parte|codigo|codice/i, parteSuc:/suces|suc\b/i,
-        sap1:/sap.*1|sap.*orig/i, sap2:/sap.*2|sap.*nac/i,
-        denomFab:/denom.*fab|descri.*fab|denominaci/i, denomCom:/denom.*com|descri.*com|comercial/i,
-        freqMtto:/frec|freq/i, cantMtto:/cant.*mt/i,
-        sapEquipo:/sap.*equi/i, componente:/compon/i
+        pos:/^item$|^pos\.?$/i,
+        cantPos:/^cant|cantidad/i,
+        um:/^um|^und|^unid/i,
+        indUso:/^ind/i,
+        parte:/n.*parte|part.*n|^parte$|^codigo$|^codice$/i,
+        parteSuc:/suces|suc\b/i,
+        sap1:/^sap$|sap.*1|sap.*orig/i,
+        sap2:/sap.*2|sap.*nac/i,
+        denomFab:/descri.*fab|denom.*fab|^descripcion$/i,
+        denomCom:/descri.*com|denom.*com|comercial|descri.*sap/i,
+        freqMtto:/frec|freq/i,
+        cantMtto:/cant.*mt/i,
+        sapEquipo:/sap.*equi/i,
+        componente:/compon/i
       };
       for(var r=0;r<Math.min(10,data.length);r++){
         var row=data[r];
