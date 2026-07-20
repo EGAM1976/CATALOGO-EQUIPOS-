@@ -1065,6 +1065,7 @@
   function render2DOverlay(){
     const w=img2.w,baseR=Math.max(13,w*0.016),R=baseR*balloonScale;let out="";
     markers.forEach(m=>{
+      if(m.noBalloon||m.x<0||m.y<0)return; // skip un-placed markers (e.g. from Excel)
       const cx=m.x*img2.w,cy=m.y*img2.h,sel=(m.id===sel2);
       out+='<g class="balloon" data-id="'+m.id+'">'
         +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="'+(sel?'#2f6fb0':'#ff9e2c')+'" stroke="#17110a" stroke-width="'+(R*0.12).toFixed(1)+'"/>'
@@ -1936,23 +1937,63 @@
     }catch(e){console.error("Image extraction error:",e);}
     return images;
   }
+  let currentWb=null,currentXlsName="";
   async function loadExcelFile(buffer,name){
     busy(true,"Cargando librería Excel…");
     try{
       await loadXlsLib();
       busy(true,"Leyendo Excel…");
       var wb=XLSX.read(new Uint8Array(buffer),{type:"array",cellStyles:true});
+      currentWb=wb;currentXlsName=name;
+      window._xlsBuffer=buffer; // keep for image extraction
       var sheetNames=wb.SheetNames;
-      // Let user pick sheet if multiple
-      var sheetIdx=0;
+      // Show sheet selector if multiple sheets
       if(sheetNames.length>1){
-        var choice=prompt("El archivo tiene "+sheetNames.length+" hojas:\\n"+sheetNames.map(function(s,i){return (i+1)+") "+s;}).join("\\n")+"\\n\\nEscribe el número de la hoja:",1);
-        if(choice===null){busy(false);return;}
-        sheetIdx=Math.max(0,Math.min(sheetNames.length-1,(parseInt(choice,10)||1)-1));
+        showSheetSelector(sheetNames);
+      }else{
+        hideSheetSelector();
       }
+      await loadExcelSheet(0);
+    }catch(err){
+      console.error(err);
+      alert("No se pudo leer el Excel:\n"+(err.message||err));
+      busy(false);
+    }
+  }
+
+  function showSheetSelector(sheetNames){
+    var sel=document.getElementById("xlsSheetSel");
+    if(!sel){
+      sel=document.createElement("select");
+      sel.id="xlsSheetSel";
+      sel.className="btn ghost";
+      sel.style.cssText="font-size:11px;padding:5px 8px;max-width:180px";
+      sel.title="Cambiar de hoja del Excel";
+      sel.onchange=function(){loadExcelSheet(+sel.value);};
+      // Insert into toolbar after the Excel button
+      var btn=document.getElementById("btnOpenXls");
+      if(btn&&btn.parentNode)btn.parentNode.insertBefore(sel,btn.nextSibling);
+    }
+    sel.innerHTML="";
+    sheetNames.forEach(function(n,i){
+      var o=document.createElement("option");o.value=i;o.textContent="📄 "+n;sel.appendChild(o);
+    });
+    sel.style.display="";
+  }
+  function hideSheetSelector(){
+    var sel=document.getElementById("xlsSheetSel");
+    if(sel)sel.style.display="none";
+  }
+
+  async function loadExcelSheet(sheetIdx){
+    if(!currentWb)return;
+    busy(true,"Leyendo hoja…");
+    var wb=currentWb,name=currentXlsName,sheetNames=wb.SheetNames;
+    try{
+      var buffer=window._xlsBuffer;
       var ws=wb.Sheets[sheetNames[sheetIdx]];
       var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-      if(!data.length||data.length<2){alert("La hoja está vacía o no tiene datos.");busy(false);return;}
+      if(!data.length||data.length<2){alert("La hoja \""+sheetNames[sheetIdx]+"\" está vacía.");busy(false);return;}
       
       // Find header row (look for keywords)
       var headerIdx=-1;
@@ -2019,11 +2060,8 @@
       busy(true,"Extrayendo imágenes del Excel…");
       var images=await extractExcelImages(buffer);
       
-      // Load into markers
-      if(markers.length&&!confirm("Ya tienes "+markers.length+" piezas. ¿Reemplazar con los "+parts.length+" del Excel?")){busy(false);return;}
-      
       markers=parts.map(function(p,i){
-        return Object.assign({id:p.pos||String(i+1),x:0.05+(i%10)*0.09,y:0.05+Math.floor(i/10)*0.09},p);
+        return Object.assign({id:p.pos||String(i+1),x:-1,y:-1,noBalloon:true},p);
       });
       
       setMode("2d");emptyEl.classList.add("hidden");
@@ -2037,7 +2075,7 @@
           img2={w:tmpImg.naturalWidth,h:tmpImg.naturalHeight,src:imgSrc};
           setImage2D();render2DOverlay();render2DBOM();fit2D();
           busy(false);
-          alert("Importados "+parts.length+" repuestos y "+images.length+" imagen(es) del Excel.\nLos globos están sobre la imagen — arrástralos a la posición correcta.");
+          alert("Listo: "+parts.length+" repuestos y la imagen del Excel.\n\nSe muestra la imagen tal cual + la tabla con todos los datos. Si quieres marcar globos sobre el dibujo, toca una pieza de la lista y luego toca su posición en la imagen.");
         };
         tmpImg.onerror=function(){
           img2={w:1200,h:800,src:""};setImage2D();render2DOverlay();render2DBOM();busy(false);
