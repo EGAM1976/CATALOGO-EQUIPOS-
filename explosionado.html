@@ -1983,7 +1983,7 @@
     }catch(e){console.error("Image extraction error:",e);}
     return result;
   }
-  let currentWb=null,currentXlsName="";
+  let currentWb=null,currentXlsName="",cachedImages=null;
   async function loadExcelFile(buffer,name){
     busy(true,"Cargando librería Excel…");
     try{
@@ -1991,14 +1991,13 @@
       busy(true,"Leyendo Excel…");
       var wb=XLSX.read(new Uint8Array(buffer),{type:"array",cellStyles:true});
       currentWb=wb;currentXlsName=name;
-      window._xlsBuffer=buffer; // keep for image extraction
+      window._xlsBuffer=buffer;
+      // Extract ALL images once, mapped by sheet
+      busy(true,"Extrayendo imágenes…");
+      cachedImages=await extractExcelImages(buffer);
       var sheetNames=wb.SheetNames;
-      // Show sheet selector if multiple sheets
-      if(sheetNames.length>1){
-        showSheetSelector(sheetNames);
-      }else{
-        hideSheetSelector();
-      }
+      if(sheetNames.length>1){showSheetSelector(sheetNames);}
+      else{hideSheetSelector();}
       await loadExcelSheet(0);
     }catch(err){
       console.error(err);
@@ -2102,10 +2101,8 @@
       
       if(!parts.length){alert("No se encontraron datos de repuestos en esta hoja.");busy(false);return;}
       
-      // Extract images from Excel (mapped by sheet)
-      busy(true,"Extrayendo imágenes del Excel…");
-      var imgData=await extractExcelImages(buffer);
-      // Prefer image of THIS sheet; fall back to largest overall
+      // Use cached images mapped by sheet
+      var imgData=cachedImages||{bySheet:{},all:[]};
       var sheetImgs=imgData.bySheet[sheetIdx]||[];
       var images=sheetImgs.length?sheetImgs:[];
       
@@ -2124,7 +2121,6 @@
           img2={w:tmpImg.naturalWidth,h:tmpImg.naturalHeight,src:imgSrc};
           setImage2D();render2DOverlay();render2DBOM();fit2D();
           busy(false);
-          alert("Listo: "+parts.length+" repuestos y la imagen del Excel.\n\nSe muestra la imagen tal cual + la tabla con todos los datos. Si quieres marcar globos sobre el dibujo, toca una pieza de la lista y luego toca su posición en la imagen.");
         };
         tmpImg.onerror=function(){
           img2={w:1200,h:800,src:""};setImage2D();render2DOverlay();render2DBOM();busy(false);
@@ -2134,11 +2130,10 @@
         img2={w:1200,h:800,src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#f5f6f8"/><text x="600" y="400" text-anchor="middle" font-family="Inter,sans-serif" font-size="18" fill="#8c95a0">'+parts.length+' repuestos importados — carga un PDF para ubicar los globos</text></svg>')};
         setImage2D();render2DOverlay();render2DBOM();
         busy(false);
-        alert("Importados "+parts.length+" repuestos del Excel (sin imágenes).\nCarga un PDF para ubicar los globos sobre el dibujo.");
       }
       
       currentName=name||"excel.xlsx";
-      sheetnote.textContent=name.toUpperCase()+"  ·  "+parts.length+" REPUESTOS  ·  Hoja: "+sheetNames[sheetIdx];
+      sheetnote.textContent=name.toUpperCase()+"  ·  "+sheetNames[sheetIdx]+"  ·  "+parts.length+" repuestos"+(images.length?"  ·  📷 "+images[0].name:"  ·  sin imagen");
       countEl.textContent=parts.length+" repuestos";
       saveNow2();
     }catch(err){
