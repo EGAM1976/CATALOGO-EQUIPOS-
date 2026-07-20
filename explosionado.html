@@ -1922,20 +1922,66 @@
     return xlsLoaded;
   }
   async function extractExcelImages(buffer){
-    var images=[];
+    // Returns {bySheet: {sheetIndex: [images]}, all: [images]}
+    var result={bySheet:{},all:[]};
     try{
       var zip=await JSZip.loadAsync(buffer);
-      var mediaFiles=Object.keys(zip.files).filter(function(f){return f.startsWith("xl/media/");});
+      // Load all media files
+      var mediaCache={};
+      var mediaFiles=Object.keys(zip.files).filter(function(f){return f.startsWith("xl/media/")&&/\.(png|jpe?g|gif|bmp)$/i.test(f);});
       for(var i=0;i<mediaFiles.length;i++){
         var f=mediaFiles[i];
         var data=await zip.files[f].async("base64");
         var ext=f.split(".").pop().toLowerCase();
         var mime=ext==="png"?"image/png":ext==="jpg"||ext==="jpeg"?"image/jpeg":"image/"+ext;
-        images.push({name:f,mime:mime,b64:data,size:data.length});
+        var imgName=f.replace("xl/media/","");
+        mediaCache[imgName]={name:imgName,mime:mime,b64:data,size:data.length};
+        result.all.push(mediaCache[imgName]);
       }
-      images.sort(function(a,b){return b.size-a.size;});
+      result.all.sort(function(a,b){return b.size-a.size;});
+
+      // Map sheets to their images via drawing relationships
+      // Get ordered sheet -> file mapping from workbook.xml.rels
+      var wbRels=zip.files["xl/_rels/workbook.xml.rels"]?await zip.files["xl/_rels/workbook.xml.rels"].async("string"):"";
+      var wbXml=zip.files["xl/workbook.xml"]?await zip.files["xl/workbook.xml"].async("string"):"";
+      // Build sheetId order: sheets appear in workbook.xml in order, with r:id
+      var sheetOrder=[];
+      var sheetMatches=wbXml.match(/<sheet[^>]*r:id="(rId\d+)"[^>]*\/>/g)||wbXml.match(/<sheet[^>]*\/>/g)||[];
+      sheetMatches.forEach(function(sm){
+        var rid=(sm.match(/r:id="(rId\d+)"/)||[])[1];
+        sheetOrder.push(rid);
+      });
+      // Map rId -> sheetN.xml
+      var ridToFile={};
+      (wbRels.match(/<Relationship[^>]*\/>/g)||[]).forEach(function(rel){
+        var id=(rel.match(/Id="(rId\d+)"/)||[])[1];
+        var tgt=(rel.match(/Target="([^"]+)"/)||[])[1];
+        if(id&&tgt&&tgt.indexOf("worksheets/")>=0)ridToFile[id]=tgt.replace(/^\/?xl\//,"").replace("worksheets/","");
+      });
+
+      for(var si=0;si<sheetOrder.length;si++){
+        var sheetFile=ridToFile[sheetOrder[si]]; // e.g. "sheet1.xml"
+        if(!sheetFile)continue;
+        var relPath="xl/worksheets/_rels/"+sheetFile+".rels";
+        if(!zip.files[relPath])continue;
+        var relXml=await zip.files[relPath].async("string");
+        var drawMatch=relXml.match(/drawings\/(drawing\d+\.xml)/);
+        if(!drawMatch)continue;
+        var drawRelPath="xl/drawings/_rels/"+drawMatch[1]+".rels";
+        if(!zip.files[drawRelPath])continue;
+        var drawRelXml=await zip.files[drawRelPath].async("string");
+        // Find all images referenced by this drawing
+        var imgRefs=drawRelXml.match(/media\/(image\d+\.\w+)/g)||[];
+        var sheetImgs=[];
+        imgRefs.forEach(function(ref){
+          var imgName=ref.replace("media/","");
+          if(mediaCache[imgName])sheetImgs.push(mediaCache[imgName]);
+        });
+        sheetImgs.sort(function(a,b){return b.size-a.size;});
+        result.bySheet[si]=sheetImgs;
+      }
     }catch(e){console.error("Image extraction error:",e);}
-    return images;
+    return result;
   }
   let currentWb=null,currentXlsName="";
   async function loadExcelFile(buffer,name){
@@ -2056,9 +2102,12 @@
       
       if(!parts.length){alert("No se encontraron datos de repuestos en esta hoja.");busy(false);return;}
       
-      // Extract images from Excel
+      // Extract images from Excel (mapped by sheet)
       busy(true,"Extrayendo imágenes del Excel…");
-      var images=await extractExcelImages(buffer);
+      var imgData=await extractExcelImages(buffer);
+      // Prefer image of THIS sheet; fall back to largest overall
+      var sheetImgs=imgData.bySheet[sheetIdx]||[];
+      var images=sheetImgs.length?sheetImgs:[];
       
       markers=parts.map(function(p,i){
         return Object.assign({id:p.pos||String(i+1),x:-1,y:-1,noBalloon:true},p);
