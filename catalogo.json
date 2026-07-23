@@ -167,6 +167,11 @@
            "nombre": "S2735WF_SpareParts_ESP.pdf",
            "tipo": "2D",
            "proyecto": "proyectos/S2735WF_SpareParts_ESP_2d3.json"
+          },
+          {
+           "nombre": "S2735WF_SpareParts_ESP.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/S2735WF_SpareParts_ESP_2d33333.json"
           }
          ]
         }
