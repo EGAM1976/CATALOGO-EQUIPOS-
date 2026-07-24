@@ -292,7 +292,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   const VIEWER_URL="explosionado.html";
   const CAT_URL="catalogo.json";
 
-  let DATA=null,selDespiece=null,curProject=null;
+  let DATA=null,selDespiece=null,curProject=null,curCtx=null;
   let vImg={w:0,h:0,src:""},vMarkers=[],vSel=null;
   let vZoom=1,vPanX=0,vPanY=0;
   let pdfDoc=null,pdfPage=1,pdfPages=1;
@@ -329,6 +329,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
           return (zo.lineas||[]).map(li=>makeNode(li,"▸","línea",function(){
             return (li.maquinas||[]).map(mq=>makeNode(mq,"▸","máquina",function(){
+              curCtx={pl:pl,zo:zo,li:li,mq:mq};
               const cats=[];
               // 1) Catálogo de piezas (despieces)
               const des=(mq.despieces||[]).slice();
@@ -407,6 +408,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     label.onclick=function(){
       document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
       label.classList.add("sel");
+      curCtx=curCtx||{};curCtx.mq=mq;
       if(tipo==="piezas"){
         document.querySelectorAll(".tab")[0].click();
         loadDespiece(d,mq);
@@ -1086,9 +1088,19 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var existed=await GH.getSha(path);
       if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
       await GH.putFile(path,JSON.stringify(prj),"Crear hoja "+nombre);
-      // Link to a machine
+      // Link to a machine — use current tree context if available
       var cat=await (await fetch("catalogo.json",{cache:"no-cache"})).json();
-      var target=await pickMachine(cat);
+      var target=null;
+      if(curCtx&&curCtx.mq){
+        // locate the same machine inside the freshly-fetched catalog
+        var ruta=(curCtx.pl?curCtx.pl.nombre+" › ":"")+(curCtx.zo?curCtx.zo.nombre+" › ":"")+(curCtx.li?curCtx.li.nombre+" › ":"")+curCtx.mq.nombre;
+        if(confirm("¿Enlazar la hoja a:\n\n"+ruta+"\n\n(Cancelar para elegir otra máquina)")){
+          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){
+            if(mq.nombre===curCtx.mq.nombre&&(!curCtx.li||li.nombre===curCtx.li.nombre)&&(!curCtx.zo||zo.nombre===curCtx.zo.nombre)&&(!curCtx.pl||pl.nombre===curCtx.pl.nombre))target=mq;
+          });});});});
+        }
+      }
+      if(!target)target=await pickMachine(cat);
       if(target){
         target.despieces=target.despieces||[];
         target.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
