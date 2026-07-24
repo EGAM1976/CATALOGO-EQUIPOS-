@@ -271,6 +271,12 @@
         if(sha)body.sha=sha;
         return this.req(this.repoPath(path),{method:"PUT",body:JSON.stringify(body)});
       },
+      async putFileRaw(path,base64Content,message){
+        const sha=await this.getSha(path);
+        const body={message:message||("Subir "+path),content:base64Content,branch:this.cfg.branch};
+        if(sha)body.sha=sha;
+        return this.req(this.repoPath(path),{method:"PUT",body:JSON.stringify(body)});
+      },
       async getJson(path){
         const j=await this.req(this.repoPath(path)+"?ref="+encodeURIComponent(this.cfg.branch));
         const bin=atob((j.content||"").replace(/\n/g,""));
@@ -616,9 +622,55 @@
       html+='<div><label>Categoría</label><select id="dfCat"><option value="manual">Manual operativo</option><option value="procedimiento">Procedimiento</option><option value="ficha">Ficha técnica</option><option value="checklist">Check-list</option><option value="otro">Otro</option></select></div>';
     }
     html+='</div>';
-    html+='<div class="flds one" style="margin-top:10px"><div><label>Ruta del archivo</label><input type="text" id="dfP" placeholder="'+(key==="despieces"?"proyectos/nombre.json":"documentos/nombre.pdf")+'" class="mono"/></div></div>';
+    html+='<div class="flds one" style="margin-top:10px"><div><label>Archivo</label>'
+      +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<input type="text" id="dfP" placeholder="'+(key==="despieces"?"proyectos/nombre.json":"documentos/nombre.pdf")+'" class="mono" style="flex:1"/>'
+      +'<button class="btn" id="dfBrowse" style="white-space:nowrap">📁 Buscar y subir</button>'
+      +'</div>'
+      +'<input type="file" id="dfFile" accept="'+(key==="despieces"?".json":".pdf,.jpg,.jpeg,.png")+'" style="display:none"/>'
+      +'<div id="dfStatus" style="font-size:11px;color:var(--faint);margin-top:5px;min-height:16px"></div>'
+      +'</div></div>';
     html+='<div class="btns"><button class="btn primary" id="dfS">'+(isEdit?"Guardar":"Agregar")+'</button><button class="btn ghost" id="dfC">Cancelar</button></div>';
     wrap.innerHTML=html;
+
+    // Browse & upload to GitHub
+    const fileInput=wrap.querySelector("#dfFile");
+    const statusEl=wrap.querySelector("#dfStatus");
+    wrap.querySelector("#dfBrowse").onclick=()=>{
+      if(!GH.ready()){
+        if(confirm("Primero necesitas conectar GitHub (botón ⚙). ¿Abrirlo ahora?")){ghModal();}
+        return;
+      }
+      fileInput.click();
+    };
+    fileInput.addEventListener("change",async()=>{
+      const f=fileInput.files&&fileInput.files[0];
+      if(!f)return;
+      const folder=key==="despieces"?"proyectos":"documentos";
+      const safeName=f.name.replace(/[^A-Za-z0-9._-]/g,"_");
+      const ghPath=folder+"/"+safeName;
+      statusEl.innerHTML='<span style="color:var(--accent)">Subiendo '+esc(f.name)+' ('+Math.round(f.size/1024)+' KB)…</span>';
+      try{
+        const buf=await f.arrayBuffer();
+        const bytes=new Uint8Array(buf);
+        let bin="";
+        const chunk=0x8000;
+        for(let i=0;i<bytes.length;i+=chunk){bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));}
+        const b64=btoa(bin);
+        const existed=await GH.getSha(ghPath);
+        if(existed&&!confirm("Ya existe "+ghPath+".\n\n¿Reemplazarlo?")){statusEl.textContent="";fileInput.value="";return;}
+        await GH.putFileRaw(ghPath,b64,(existed?"Actualizar ":"Subir ")+ghPath);
+        wrap.querySelector("#dfP").value=ghPath;
+        if(!wrap.querySelector("#dfN").value.trim()){
+          wrap.querySelector("#dfN").value=f.name.replace(/\.[^.]+$/,"").replace(/[_-]/g," ");
+        }
+        statusEl.innerHTML='<span style="color:#28a745">✓ Subido a '+esc(ghPath)+'</span>';
+      }catch(err){
+        console.error(err);
+        statusEl.innerHTML='<span style="color:#dc3545">Error: '+esc(err.message||String(err))+'</span>';
+      }
+      fileInput.value="";
+    });
 
     if(isEdit){
       wrap.querySelector("#dfN").value=existing.nombre||"";
