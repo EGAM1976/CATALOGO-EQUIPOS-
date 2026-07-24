@@ -874,11 +874,15 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // ---- Global search ----
   $("#globalSearch").addEventListener("input",function(){
     var q=this.value.toLowerCase().trim();
-    if(!q||!DATA){document.querySelectorAll("#ptbody tr").forEach(function(tr){tr.style.display="";});return;}
-    document.querySelectorAll("#ptbody tr").forEach(function(tr){
-      var txt=(tr.textContent||"").toLowerCase();
-      tr.style.display=txt.indexOf(q)>=0?"":"none";
-    });
+    // If typing in the top bar, jump to the Búsqueda tab and run the deep search
+    if(q.length>=2){
+      var busqTab=document.querySelector('.tab[data-tab="busqueda"]');
+      if(busqTab)busqTab.click();
+      var sa=$("#searchAll");
+      if(sa){sa.value=this.value;sa.dispatchEvent(new Event("input"));}
+    }else{
+      document.querySelectorAll("#ptbody tr").forEach(function(tr){tr.style.display="";});
+    }
   });
 
   // ---- Tabs ----
@@ -921,44 +925,99 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     });
   }
 
+  var partsIndexCache={}; // path -> markers[]
+  var searchTimer=null;
+
   $("#searchAll").addEventListener("input",function(){
     var q=this.value.toLowerCase().trim();
+    clearTimeout(searchTimer);
+    searchTimer=setTimeout(function(){runDeepSearch(q);},250);
+  });
+
+  async function runDeepSearch(q){
     var results=$("#searchResults");
     results.innerHTML="";
-    if(!q||q.length<2){results.innerHTML='<div style="color:var(--faint)">Escribe al menos 2 caracteres.</div>';return;}
+    if(!q||q.length<2){results.innerHTML='<div style="color:var(--faint)">Escribe al menos 2 caracteres (N° de parte, SAP, descripción o máquina).</div>';return;}
     if(!allParts.length)buildSearchIndex();
-    // Also search in loaded project markers
+
     var found=[];
+    // 1) Match sheet/machine names quickly
     allParts.forEach(function(item){
       var txt=(item.nombre+" "+item.path+" "+(item.tipo||"")).toLowerCase();
-      if(txt.indexOf(q)>=0)found.push(item);
+      if(txt.indexOf(q)>=0)found.push({kind:"hoja",item:item});
     });
-    // Search in current parts table too
-    vMarkers.forEach(function(m){
-      var txt=(m.id+" "+m.parte+" "+m.text+" "+m.sap).toLowerCase();
-      if(txt.indexOf(q)>=0)found.push({nombre:"Pos. "+m.id+" — "+(m.parte||"")+" "+(m.text||""),path:curProject?(curProject.name||""):"",tipo:"pieza",marker:m});
-    });
-    if(!found.length){results.innerHTML='<div style="color:var(--faint)">Sin resultados para "'+esc(q)+'".</div>';return;}
-    found.slice(0,50).forEach(function(item){
-      var div=document.createElement("div");div.className="searchResult";
-      var tipoChip=item.tipo==="electrico"?"⚡ ":item.tipo==="doc"?"📖 ":item.tipo==="pieza"?"🔧 ":"📋 ";
-      div.innerHTML='<div class="sr-title">'+tipoChip+esc(item.nombre)+'</div>'
-        +'<div class="sr-path">'+esc(item.path)+'</div>'
-        +(item.marker?'<div class="sr-code">'+esc(item.marker.parte)+'</div>':"");
-      div.onclick=function(){
-        if(item.marker){
-          // Switch to piezas tab and highlight
-          document.querySelectorAll(".tab")[0].click();
-          selectPart(item.marker.id);
-        }else if(item.proyecto){
-          document.querySelectorAll(".tab")[0].click();
-          loadDespiece(item.desp||item,item.mq||{nombre:""});
+
+    results.innerHTML='<div style="color:var(--faint)">Buscando en todas las hojas…</div>';
+
+    // 2) Deep-search part data inside every piezas project
+    var jobs=allParts.filter(function(it){return it.proyecto&&/\.json$/i.test(it.proyecto);});
+    var partHits=[];
+    for(var i=0;i<jobs.length;i++){
+      var it=jobs[i];
+      var markers=partsIndexCache[it.proyecto];
+      if(!markers){
+        try{
+          var r=await fetch(it.proyecto,{cache:"no-cache"});
+          if(r.ok){var prj=await r.json();markers=prj.markers||prj.parts||[];partsIndexCache[it.proyecto]=markers;}
+          else markers=[];
+        }catch(e){markers=[];}
+      }
+      markers.forEach(function(m){
+        var hay=[m.pos,m.id,m.parte,m.parteSuc,m.sap1,m.sap2,m.denomFab,m.denomCom,m.componente,m.sapEquipo].join(" ").toLowerCase();
+        if(hay.indexOf(q)>=0){
+          partHits.push({kind:"pieza",item:it,marker:m});
         }
+      });
+    }
+
+    // Render
+    results.innerHTML="";
+    var total=partHits.length+found.length;
+    if(!total){results.innerHTML='<div style="color:var(--faint)">Sin resultados para "'+esc(q)+'".</div>';return;}
+
+    var header=document.createElement("div");
+    header.style.cssText="font-size:11px;color:var(--faint);margin-bottom:8px";
+    header.textContent=total+" resultado(s)";
+    results.appendChild(header);
+
+    // Part hits first (most relevant)
+    partHits.slice(0,100).forEach(function(h){
+      var m=h.marker,it=h.item;
+      var div=document.createElement("div");div.className="searchResult";
+      div.innerHTML='<div class="sr-title">🔧 '+esc(m.parte||m.denomFab||("Pos "+(m.pos||m.id)))+'</div>'
+        +'<div class="sr-path">'+esc(it.path)+' › '+esc(it.nombre)+'</div>'
+        +'<div style="font-size:11px;margin-top:3px;display:flex;gap:12px;flex-wrap:wrap">'
+        +(m.pos||m.id?'<span><b>Pos:</b> '+esc(m.pos||m.id)+'</span>':'')
+        +(m.parte?'<span style="color:#CC0033"><b>N° Parte:</b> '+esc(m.parte)+'</span>':'')
+        +(m.sap1?'<span style="color:#0066CC"><b>SAP:</b> '+esc(m.sap1)+'</span>':'')
+        +(m.sap2?'<span style="color:#28a745"><b>SAP NAC:</b> '+esc(m.sap2)+'</span>':'')
+        +(m.denomFab?'<span><b>Fab:</b> '+esc(m.denomFab)+'</span>':'')
+        +(m.denomCom?'<span><b>Com:</b> '+esc(m.denomCom)+'</span>':'')
+        +(m.componente?'<span><b>Comp:</b> '+esc(m.componente)+'</span>':'')
+        +'</div>';
+      div.onclick=function(){
+        document.querySelectorAll(".tab")[0].click();
+        loadDespiece(it.desp||{nombre:it.nombre,proyecto:it.proyecto},it.mq||{nombre:""});
+        setTimeout(function(){if(typeof selectPart==="function")selectPart(m.id||m.pos);},600);
       };
       results.appendChild(div);
     });
-    if(found.length>50)results.innerHTML+='<div style="color:var(--faint);margin-top:10px">Mostrando 50 de '+found.length+' resultados.</div>';
-  });
+
+    // Then sheet-name hits
+    found.slice(0,30).forEach(function(f){
+      var item=f.item;
+      var div=document.createElement("div");div.className="searchResult";
+      var tipoChip=item.tipo==="electrico"?"⚡ ":item.tipo==="doc"?"📖 ":"📋 ";
+      div.innerHTML='<div class="sr-title">'+tipoChip+esc(item.nombre)+'</div>'
+        +'<div class="sr-path">'+esc(item.path)+'</div>';
+      div.onclick=function(){
+        if(item.tipo==="electrico"){document.querySelectorAll(".tab")[1].click();loadDocument(item,item.mq,"elec");}
+        else if(item.tipo==="doc"){document.querySelectorAll(".tab")[2].click();loadDocument(item,item.mq,"doc");}
+        else{document.querySelectorAll(".tab")[0].click();loadDespiece(item.desp||item,item.mq||{nombre:""});}
+      };
+      results.appendChild(div);
+    });
+  }
 
   // ---- PDF text search ----
   const docSearch={elec:{hits:[],idx:-1,term:""},doc:{hits:[],idx:-1,term:""}};
