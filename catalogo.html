@@ -1105,18 +1105,25 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         target.despieces=target.despieces||[];
         target.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
         await GH.putFile("catalogo.json",JSON.stringify(cat,null,1),"Enlazar "+nombre);
-        // Update in-memory catalog + tree so it appears now
-        DATA=cat;buildTree();
+        DATA=cat;
       }
-      // Load the new blank sheet immediately in edit mode
-      curProject=prj;curProjectPath=path;
-      vImg={w:prj.imgW,h:prj.imgH,src:prj.image||blankCanvas(nombre)};
+      // Load the new blank sheet immediately in edit mode — no refresh, no click needed
+      curProject=prj;curProjectPath=path;selDespiece={nombre:nombre,proyecto:path};
       vMarkers=prj.markers.map(function(m){return Object.assign({},m);});
       vSel=null;
+      // Switch to piezas tab FIRST so the viewer is visible
+      document.querySelectorAll(".tab")[0].click();
       $("#viewTitle").textContent=nombre;
       $("#viewerEmpty").classList.add("hidden");
-      document.querySelectorAll(".tab")[0].click();
-      setImage();renderOverlay();
+      // Set image (wait for it to load before rendering overlay)
+      var src=prj.image||blankCanvas(nombre);
+      var tmp=new Image();
+      tmp.onload=function(){
+        vImg={w:tmp.naturalWidth||prj.imgW||1200,h:tmp.naturalHeight||prj.imgH||800,src:src};
+        setImage();renderOverlay();
+      };
+      tmp.onerror=function(){vImg={w:prj.imgW||1200,h:prj.imgH||800,src:src};setImage();renderOverlay();};
+      tmp.src=src;
       // Turn on edit mode automatically
       editMode=true;
       $("#vEdit").textContent="✕ Salir edición";
@@ -1124,6 +1131,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       $("#vSaveGH").style.display="";
       $("#vAddRow").style.display="";
       renderTable();
+      // Rebuild tree but keep it usable (the sheet is already loaded, so no click needed)
+      buildTree();
     }catch(e){alert("Error: "+(e.message||e));}
   };
 
