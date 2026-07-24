@@ -432,9 +432,26 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     if(mq&&kind){
       catNodeRegistry.push({mq:mq,kind:kind,open:function(){
         build();childBox.classList.add("open");arrow.classList.add("open");
-        // update count chip
         var cnt=(kind==="piezas"?(mq.despieces||[]):kind==="electrico"?(mq.electricos||[]):(mq.documentos||[])).length;
         chip.textContent=cnt||"0";
+      },addItem:function(d){
+        // Ensure the category is built and open
+        if(!loaded)build();
+        if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
+        childBox.classList.add("open");arrow.classList.add("open");
+        // Remove any "Sin despieces/esquemas/documentos" placeholder
+        var empty=childBox.querySelector(".tlabel.desp");
+        if(empty&&/Sin /.test(empty.textContent)&&empty.parentNode)empty.parentNode.remove();
+        // Append the real item node
+        var node=makeItemNode(d,mq,kind);
+        childBox.appendChild(node);
+        // Update count + select it
+        var cnt=(kind==="piezas"?(mq.despieces||[]):kind==="electrico"?(mq.electricos||[]):(mq.documentos||[])).length;
+        chip.textContent=cnt||"0";
+        // Highlight the new node
+        document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
+        var lbl=node.querySelector(".tlabel");if(lbl){lbl.classList.add("sel");try{lbl.scrollIntoView({block:"nearest"});}catch(e){}}
+        return node;
       }});
     }
     return div;
@@ -1258,9 +1275,19 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           curCtx.mq.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
         }
       }
-      // Rebuild tree, then re-open the full path down to this machine's Catálogo category
-      buildTree();
-      setTimeout(function(){expandToMachine(curCtx);},60);
+      // Insert the new sheet node directly into the currently-open "Catálogo de piezas"
+      // category in the DOM — WITHOUT rebuilding the tree (which collapses it).
+      var inserted=false;
+      var reg=catNodeRegistry.find(function(r){return r.mq&&curCtx&&r.mq===curCtx.mq&&r.kind==="piezas";});
+      if(reg&&reg.addItem){
+        reg.addItem({nombre:nombre,tipo:"2D",proyecto:path});
+        inserted=true;
+      }
+      if(!inserted){
+        // Fallback: rebuild + expand (older path)
+        buildTree();
+        setTimeout(function(){expandToMachine(curCtx);},80);
+      }
     }catch(e){alert("Error: "+(e.message||e));}
   };
 
