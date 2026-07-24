@@ -323,7 +323,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
   // ---- Tree ----
   function buildTree(){
-    const root=$("#treeContent");root.innerHTML="";catNodeRegistry=[];
+    const root=$("#treeContent");root.innerHTML="";catNodeRegistry=[];nodeRegistry=[];
     (DATA.plantas||[]).forEach(pl=>{
       root.appendChild(makeNode(pl,"▸","planta",function(){
         return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
@@ -358,6 +358,21 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       }));
     });
   }
+  var nodeRegistry=[]; // {item, kind, expand}
+  function expandToMachine(ctx){
+    if(!ctx)return;
+    // Expand planta, zona, linea, maquina in order
+    [ctx.pl,ctx.zo,ctx.li,ctx.mq].forEach(function(obj){
+      if(!obj)return;
+      var reg=nodeRegistry.find(function(r){return r.item===obj;});
+      if(reg)reg.expand();
+    });
+    // Then open the Catálogo de piezas category of that machine
+    setTimeout(function(){
+      var cat=catNodeRegistry.find(function(r){return r.mq===ctx.mq&&r.kind==="piezas";});
+      if(cat)cat.open();
+    },40);
+  }
   function makeNode(item,icon,kind,childrenFn){
     const div=document.createElement("div");div.className="tnode";
     const label=document.createElement("div");label.className="tlabel";
@@ -368,6 +383,12 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     label.appendChild(arrow);label.appendChild(ic);label.appendChild(nm);
     div.appendChild(label);
     let childBox=null,loaded=false;
+    function expand(){
+      if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
+      if(!loaded){loaded=true;const kids=childrenFn();kids.forEach(function(k){childBox.appendChild(k);});}
+      childBox.classList.add("open");arrow.classList.add("open");
+    }
+    nodeRegistry.push({item:item,kind:kind,expand:expand});
     label.onclick=function(){
       if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
       if(!loaded){loaded=true;const kids=childrenFn();kids.forEach(function(k){childBox.appendChild(k);});}
@@ -423,6 +444,29 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     const chip=document.createElement("span");chip.className="tcount";
     chip.textContent=tipo==="piezas"?(d.tipo||"").toUpperCase():(d.categoria||"").toUpperCase();
     label.appendChild(nm);label.appendChild(chip);
+    // Delete button (admin only)
+    if(isAdmin()){
+      const del=document.createElement("span");
+      del.textContent="🗑";del.title="Borrar esta hoja";
+      del.style.cssText="cursor:pointer;font-size:11px;opacity:.5;margin-left:4px";
+      del.onmouseenter=function(){del.style.opacity="1";};
+      del.onmouseleave=function(){del.style.opacity=".5";};
+      del.onclick=async function(ev){
+        ev.stopPropagation();
+        if(!GH.ready()){alert("Conecta GitHub primero (botón ⚙).");ghModal();return;}
+        if(!confirm('¿Borrar la hoja "'+(d.nombre||"")+'" de esta máquina?\n\nSe quita del catálogo. El archivo queda en el repositorio por si lo necesitas.'))return;
+        try{
+          var arr=tipo==="piezas"?mq.despieces:tipo==="electrico"?mq.electricos:mq.documentos;
+          var i=arr.indexOf(d);if(i>=0)arr.splice(i,1);
+          await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
+          div.remove();
+          // update count chip on parent category
+          var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===tipo;});
+          if(reg)reg.open();
+        }catch(e){alert("No se pudo borrar: "+(e.message||e));}
+      };
+      label.appendChild(del);
+    }
     div.appendChild(label);
     label.onclick=function(){
       document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
@@ -1150,18 +1194,16 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       $("#vSaveGH").style.display="";
       $("#vAddRow").style.display="";
       renderTable();
-      // Add the sheet to the machine object and refresh ONLY its category node (keeps tree open)
-      try{
-        if(curCtx&&curCtx.mq){
-          curCtx.mq.despieces=curCtx.mq.despieces||[];
-          if(!curCtx.mq.despieces.some(function(d){return d.proyecto===path;})){
-            curCtx.mq.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
-          }
-          // Find the registered category node for this machine and open it
-          var reg=catNodeRegistry.find(function(r){return r.mq===curCtx.mq&&r.kind==="piezas";});
-          if(reg)reg.open();
+      // Add the sheet to the machine object
+      if(curCtx&&curCtx.mq){
+        curCtx.mq.despieces=curCtx.mq.despieces||[];
+        if(!curCtx.mq.despieces.some(function(d){return d.proyecto===path;})){
+          curCtx.mq.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
         }
-      }catch(e){console.error(e);}
+      }
+      // Rebuild tree, then re-open the full path down to this machine's Catálogo category
+      buildTree();
+      setTimeout(function(){expandToMachine(curCtx);},60);
     }catch(e){alert("Error: "+(e.message||e));}
   };
 
