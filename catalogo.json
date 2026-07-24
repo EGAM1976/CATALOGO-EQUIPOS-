@@ -169,6 +169,11 @@
            "nombre": "FALLLL333",
            "tipo": "2D",
            "proyecto": "proyectos/fallll333.json"
+          },
+          {
+           "nombre": "FALSA 69",
+           "tipo": "2D",
+           "proyecto": "proyectos/falsa_69.json"
           }
          ]
         }
