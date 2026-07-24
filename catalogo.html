@@ -323,7 +323,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
   // ---- Tree ----
   function buildTree(){
-    const root=$("#treeContent");root.innerHTML="";
+    const root=$("#treeContent");root.innerHTML="";catNodeRegistry=[];
     (DATA.plantas||[]).forEach(pl=>{
       root.appendChild(makeNode(pl,"▸","planta",function(){
         return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
@@ -335,18 +335,22 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
               const des=(mq.despieces||[]).slice();
               if(mq.proyecto&&!des.length)des.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
               cats.push(makeCategoryNode("📋 Catálogo de piezas",des.length,function(){
-                return des.length?des.map(d=>makeItemNode(d,mq,"piezas")):[makeEmptyNode("Sin despieces")];
-              }));
+                var dd=(mq.despieces||[]).slice();
+                if(mq.proyecto&&!dd.length)dd.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
+                return dd.length?dd.map(d=>makeItemNode(d,mq,"piezas")):[makeEmptyNode("Sin despieces")];
+              },mq,"piezas"));
               // 2) Esquema eléctrico
               const elec=mq.electricos||[];
               cats.push(makeCategoryNode("⚡ Esquema eléctrico",elec.length,function(){
-                return elec.length?elec.map(d=>makeItemNode(d,mq,"electrico")):[makeEmptyNode("Sin esquemas")];
-              }));
+                var ee=mq.electricos||[];
+                return ee.length?ee.map(d=>makeItemNode(d,mq,"electrico")):[makeEmptyNode("Sin esquemas")];
+              },mq,"electrico"));
               // 3) Documentación
               const docs=mq.documentos||[];
               cats.push(makeCategoryNode("📖 Documentación",docs.length,function(){
-                return docs.length?docs.map(d=>makeItemNode(d,mq,"doc")):[makeEmptyNode("Sin documentos")];
-              }));
+                var oo=mq.documentos||[];
+                return oo.length?oo.map(d=>makeItemNode(d,mq,"doc")):[makeEmptyNode("Sin documentos")];
+              },mq,"doc"));
               return cats;
             }));
           }));
@@ -372,7 +376,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     };
     return div;
   }
-  function makeCategoryNode(title,count,childrenFn){
+  var catNodeRegistry=[]; // {mq, kind, refresh}
+  function makeCategoryNode(title,count,childrenFn,mq,kind){
     const div=document.createElement("div");div.className="tnode";
     const label=document.createElement("div");label.className="tlabel tcat";
     const arrow=document.createElement("span");arrow.className="tarrow";arrow.textContent="▸";
@@ -381,12 +386,26 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     label.appendChild(arrow);label.appendChild(nm);label.appendChild(chip);
     div.appendChild(label);
     let childBox=null,loaded=false;
-    label.onclick=function(){
+    function build(){
       if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
-      if(!loaded){loaded=true;childrenFn().forEach(function(k){childBox.appendChild(k);});}
+      childBox.innerHTML="";
+      childrenFn().forEach(function(k){childBox.appendChild(k);});
+      loaded=true;
+    }
+    label.onclick=function(){
+      if(!loaded)build();
       const open=childBox.classList.toggle("open");
       arrow.classList.toggle("open",open);
     };
+    // Register so we can refresh + auto-open this category when a sheet is added
+    if(mq&&kind){
+      catNodeRegistry.push({mq:mq,kind:kind,open:function(){
+        build();childBox.classList.add("open");arrow.classList.add("open");
+        // update count chip
+        var cnt=(kind==="piezas"?(mq.despieces||[]):kind==="electrico"?(mq.electricos||[]):(mq.documentos||[])).length;
+        chip.textContent=cnt||"0";
+      }});
+    }
     return div;
   }
   function makeEmptyNode(txt){
@@ -1131,8 +1150,18 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       $("#vSaveGH").style.display="";
       $("#vAddRow").style.display="";
       renderTable();
-      // Rebuild tree but keep it usable (the sheet is already loaded, so no click needed)
-      buildTree();
+      // Add the sheet to the machine object and refresh ONLY its category node (keeps tree open)
+      try{
+        if(curCtx&&curCtx.mq){
+          curCtx.mq.despieces=curCtx.mq.despieces||[];
+          if(!curCtx.mq.despieces.some(function(d){return d.proyecto===path;})){
+            curCtx.mq.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
+          }
+          // Find the registered category node for this machine and open it
+          var reg=catNodeRegistry.find(function(r){return r.mq===curCtx.mq&&r.kind==="piezas";});
+          if(reg)reg.open();
+        }
+      }catch(e){console.error(e);}
     }catch(e){alert("Error: "+(e.message||e));}
   };
 
