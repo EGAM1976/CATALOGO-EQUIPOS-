@@ -149,6 +149,11 @@
            "nombre": "FALZA AMIGA",
            "tipo": "2D",
            "proyecto": "proyectos/falza_amiga.json"
+          },
+          {
+           "nombre": "FALASA BOTELLA2",
+           "tipo": "2D",
+           "proyecto": "proyectos/falasa_botella2.json"
           }
          ]
         }
