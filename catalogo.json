@@ -164,6 +164,11 @@
            "nombre": "FALSA BOTELL6",
            "tipo": "2D",
            "proyecto": "proyectos/falsa_botell6.json"
+          },
+          {
+           "nombre": "FALLLL333",
+           "tipo": "2D",
+           "proyecto": "proyectos/fallll333.json"
           }
          ]
         }
