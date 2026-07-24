@@ -179,6 +179,11 @@
            "nombre": "FALSA 65",
            "tipo": "2D",
            "proyecto": "proyectos/falsa_65.json"
+          },
+          {
+           "nombre": "FALSA 6777",
+           "tipo": "2D",
+           "proyecto": "proyectos/falsa_6777.json"
           }
          ]
         }
