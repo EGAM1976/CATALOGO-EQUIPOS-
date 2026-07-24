@@ -58,6 +58,7 @@ body{background:#fff;color:var(--text);font-family:"Inter",system-ui,sans-serif;
 .pdfSearch input{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;font-family:inherit;width:150px;outline:none}
 .pdfSearch input:focus{border-color:var(--accent)}
 .pdfSearch .mono{font-size:10px;color:var(--faint);min-width:60px}
+.hitLayer{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
 .searchHit{position:absolute;background:rgba(255,220,0,.45);border:1px solid #e6a800;pointer-events:none;border-radius:2px}
 .searchHit.cur{background:rgba(255,140,0,.6);border-color:#ff6a00}
 .tnode .tlabel.tcat{font-weight:600;color:var(--accent);font-size:11.5px}
@@ -157,7 +158,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   async function searchInPdf(prefix,term){
     const st=docState[prefix];
     const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
-    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};return;}
+    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};const L=$("#"+prefix+"Hits");if(L)L.innerHTML="";return;}
     if(info)info.textContent="buscando…";
     const q=term.toLowerCase();
     const hits=[];
@@ -165,11 +166,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       try{
         const page=await st.doc.getPage(pn);
         const tc=await page.getTextContent();
-        const txt=tc.items.map(i=>i.str||"").join(" ").toLowerCase();
-        let pos=txt.indexOf(q);
-        let count=0;
-        while(pos>=0&&count<20){hits.push({page:pn});count++;pos=txt.indexOf(q,pos+q.length);}
+        // Count occurrences per text item (matches how we highlight)
+        tc.items.forEach(function(it){
+          const low=(it.str||"").toLowerCase();
+          let pos=low.indexOf(q);
+          while(pos>=0){hits.push({page:pn});pos=low.indexOf(q,pos+q.length);}
+        });
       }catch(e){}
+      if(pn%25===0&&info)info.textContent="buscando… pág "+pn+"/"+st.pages;
     }
     docSearch[prefix]={hits:hits,idx:hits.length?0:-1,term:term};
     if(info)info.textContent=hits.length?("1/"+hits.length):"sin resultados";
@@ -299,7 +303,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
             <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button><div class="pdfSearch"><input type="search" id="eSearch" placeholder="Buscar texto…"/><button class="abtn" id="eSearchBtn">🔍</button><span id="eSearchInfo" class="mono"></span></div>
           </div>
           <div class="viewarea" id="elecViewarea">
-            <div class="pan" id="elecPan"><img id="elecImg" alt=""/></div>
+            <div class="pan" id="elecPan"><img id="elecImg" alt=""/><div class="hitLayer" id="elecHits"></div></div>
           </div>
           <div class="viewer-empty" id="elecEmpty">Selecciona una máquina del árbol. Si tiene esquemas eléctricos asignados, se mostrarán aquí.</div>
         </div>
@@ -313,7 +317,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
             <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button><div class="pdfSearch"><input type="search" id="dSearch" placeholder="Buscar texto…"/><button class="abtn" id="dSearchBtn">🔍</button><span id="dSearchInfo" class="mono"></span></div>
           </div>
           <div class="viewarea" id="docViewarea">
-            <div class="pan" id="docPan"><img id="docImg" alt=""/></div>
+            <div class="pan" id="docPan"><img id="docImg" alt=""/><div class="hitLayer" id="docHits"></div></div>
           </div>
           <div class="viewer-empty" id="docEmpty">Selecciona una máquina del árbol. Si tiene manuales o documentos asignados, se mostrarán aquí.</div>
         </div>
@@ -512,6 +516,55 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     st.page=n;
     fitDocView(prefix);
     updateDocPageUI(prefix);
+    // Draw search highlights on this page
+    await drawSearchHits(prefix,page,vp,n);
+  }
+
+  async function drawSearchHits(prefix,page,vp,pageNum){
+    const layer=$("#"+prefix+"Hits");
+    if(!layer)return;
+    layer.innerHTML="";
+    const s=docSearch[prefix];
+    if(!s||!s.term)return;
+    const q=s.term.toLowerCase();
+    try{
+      const tc=await page.getTextContent();
+      const curHit=s.hits[s.idx];
+      let hitIdxOnPage=0;
+      // Count which occurrence index on this page is the "current" one
+      let targetOnPage=-1;
+      if(curHit&&curHit.page===pageNum){
+        let c=0;
+        for(let i=0;i<s.hits.length;i++){
+          if(s.hits[i].page===pageNum){
+            if(i===s.idx){targetOnPage=c;break;}
+            c++;
+          }
+        }
+      }
+      tc.items.forEach(function(it){
+        const str=(it.str||"");
+        const low=str.toLowerCase();
+        let pos=low.indexOf(q);
+        while(pos>=0){
+          // Position of this text item in viewport coords
+          const tx=pdfjsLib.Util.transform(vp.transform,it.transform);
+          const fontH=Math.hypot(tx[2],tx[3])||10;
+          const itemW=(it.width||0)*vp.scale;
+          const charW=str.length?itemW/str.length:0;
+          const x=tx[4]+charW*pos;
+          const y=tx[5]-fontH;
+          const w=Math.max(4,charW*q.length);
+          const d=document.createElement("div");
+          d.className="searchHit"+(hitIdxOnPage===targetOnPage?" cur":"");
+          d.style.left=x+"px";d.style.top=y+"px";
+          d.style.width=w+"px";d.style.height=(fontH*1.15)+"px";
+          layer.appendChild(d);
+          hitIdxOnPage++;
+          pos=low.indexOf(q,pos+q.length);
+        }
+      });
+    }catch(e){console.error("highlight error",e);}
   }
   function fitDocView(prefix){
     const area=$("#"+(prefix==="elec"?"elecViewarea":"docViewarea"));
@@ -779,7 +832,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   async function searchInPdf(prefix,term){
     const st=docState[prefix];
     const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
-    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};return;}
+    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};const L=$("#"+prefix+"Hits");if(L)L.innerHTML="";return;}
     if(info)info.textContent="buscando…";
     const q=term.toLowerCase();
     const hits=[];
@@ -787,11 +840,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       try{
         const page=await st.doc.getPage(pn);
         const tc=await page.getTextContent();
-        const txt=tc.items.map(i=>i.str||"").join(" ").toLowerCase();
-        let pos=txt.indexOf(q);
-        let count=0;
-        while(pos>=0&&count<20){hits.push({page:pn});count++;pos=txt.indexOf(q,pos+q.length);}
+        // Count occurrences per text item (matches how we highlight)
+        tc.items.forEach(function(it){
+          const low=(it.str||"").toLowerCase();
+          let pos=low.indexOf(q);
+          while(pos>=0){hits.push({page:pn});pos=low.indexOf(q,pos+q.length);}
+        });
       }catch(e){}
+      if(pn%25===0&&info)info.textContent="buscando… pág "+pn+"/"+st.pages;
     }
     docSearch[prefix]={hits:hits,idx:hits.length?0:-1,term:term};
     if(info)info.textContent=hits.length?("1/"+hits.length):"sin resultados";
