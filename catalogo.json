@@ -157,7 +157,13 @@
          "id": "llenadora",
          "nombre": "Llenadora",
          "marca": "Sidel",
-         "despieces": []
+         "despieces": [
+          {
+           "nombre": "MOTOR PRINCIPAL",
+           "tipo": "2D",
+           "proyecto": "proyectos/motor_principal.json"
+          }
+         ]
         },
         {
          "id": "paletizadora",
