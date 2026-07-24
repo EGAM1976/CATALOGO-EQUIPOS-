@@ -159,6 +159,11 @@
            "nombre": "FALZA BOTELLA 3",
            "tipo": "2D",
            "proyecto": "proyectos/falza_botella_3.json"
+          },
+          {
+           "nombre": "FALAZAAA BOTELLA 4",
+           "tipo": "2D",
+           "proyecto": "proyectos/falazaaa_botella_4.json"
           }
          ]
         }
