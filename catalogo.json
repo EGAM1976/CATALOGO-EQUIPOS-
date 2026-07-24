@@ -196,7 +196,13 @@
          "id": "paletizadora",
          "nombre": "Paletizadora",
          "marca": "Sidel",
-         "despieces": [],
+         "despieces": [
+          {
+           "nombre": "sieu0025r00spa.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/sieu0025r00spa_2d.json"
+          }
+         ],
          "electricos": [
           {
            "nombre": "SIEU0025ED01es",
