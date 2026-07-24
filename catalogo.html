@@ -621,7 +621,16 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       curProject=await resp.json();
       if(curProject.type==="2d"){
         vImg={w:curProject.imgW||1000,h:curProject.imgH||1000,src:curProject.image||""};
-        vMarkers=(curProject.markers||[]).map(function(m){return {id:String(m.id),x:+m.x,y:+m.y,text:m.text||"",parte:m.parte||"",sap:m.sap||""};});
+        var PF=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+        vMarkers=(curProject.markers||[]).map(function(m){
+          var o={id:String(m.id),x:+m.x,y:+m.y,noBalloon:!!m.noBalloon};
+          PF.forEach(function(k){o[k]=m[k]||"";});
+          // backward compat with old projects
+          if(!o.parte&&m.parte)o.parte=m.parte;
+          if(!o.sap1&&m.sap)o.sap1=m.sap;
+          if(!o.denomFab&&m.text)o.denomFab=m.text;
+          return o;
+        });
         setImage();renderOverlay();renderTable();
         pdfPages=1;pdfPage=1;updatePageUI();
       }else{
@@ -667,6 +676,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     if(!vImg.w)return;
     var R=Math.max(10,vImg.w*0.012);var out="";
     vMarkers.forEach(function(m){
+      if(m.noBalloon||m.x<0||m.y<0)return;
       var cx=m.x*vImg.w,cy=m.y*vImg.h,sel=(m.id===vSel);
       out+='<g class="balloon" data-id="'+m.id+'">'
         +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="'+(sel?'#2f6fb0':'#ff9e2c')+'" stroke="#17110a" stroke-width="'+(R*0.12).toFixed(1)+'"/>'
