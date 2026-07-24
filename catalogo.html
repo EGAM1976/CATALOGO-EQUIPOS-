@@ -54,6 +54,12 @@ body{background:#fff;color:var(--text);font-family:"Inter",system-ui,sans-serif;
 .tchildren{padding-left:14px;display:none}
 .tchildren.open{display:block}
 .tnode .tlabel.desp{padding-left:20px}
+.pdfSearch{display:flex;align-items:center;gap:4px;margin-left:8px}
+.pdfSearch input{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;font-family:inherit;width:150px;outline:none}
+.pdfSearch input:focus{border-color:var(--accent)}
+.pdfSearch .mono{font-size:10px;color:var(--faint);min-width:60px}
+.searchHit{position:absolute;background:rgba(255,220,0,.45);border:1px solid #e6a800;pointer-events:none;border-radius:2px}
+.searchHit.cur{background:rgba(255,140,0,.6);border-color:#ff6a00}
 .tnode .tlabel.tcat{font-weight:600;color:var(--accent);font-size:11.5px}
 .tnode .tlabel.tcat .tcount{background:var(--panel-2);border-radius:8px;padding:0 5px;color:var(--muted)}
 .tnode .tlabel.desp .ticon{color:var(--accent)}
@@ -146,6 +152,57 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     else{document.getElementById("authErr").textContent="Contraseña incorrecta.";document.getElementById("authPass").value="";document.getElementById("authPass").focus();}
   };
   document.getElementById("authPass").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("authBtn").click();});
+  // ---- PDF text search ----
+  const docSearch={elec:{hits:[],idx:-1,term:""},doc:{hits:[],idx:-1,term:""}};
+  async function searchInPdf(prefix,term){
+    const st=docState[prefix];
+    const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
+    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};return;}
+    if(info)info.textContent="buscando…";
+    const q=term.toLowerCase();
+    const hits=[];
+    for(let pn=1;pn<=st.pages;pn++){
+      try{
+        const page=await st.doc.getPage(pn);
+        const tc=await page.getTextContent();
+        const txt=tc.items.map(i=>i.str||"").join(" ").toLowerCase();
+        let pos=txt.indexOf(q);
+        let count=0;
+        while(pos>=0&&count<20){hits.push({page:pn});count++;pos=txt.indexOf(q,pos+q.length);}
+      }catch(e){}
+    }
+    docSearch[prefix]={hits:hits,idx:hits.length?0:-1,term:term};
+    if(info)info.textContent=hits.length?("1/"+hits.length):"sin resultados";
+    if(hits.length)await renderDocPage(prefix,hits[0].page);
+  }
+  function nextHit(prefix,dir){
+    const s=docSearch[prefix];
+    if(!s.hits.length)return;
+    s.idx=(s.idx+dir+s.hits.length)%s.hits.length;
+    const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
+    if(info)info.textContent=(s.idx+1)+"/"+s.hits.length;
+    renderDocPage(prefix,s.hits[s.idx].page);
+  }
+  ["elec","doc"].forEach(function(prefix){
+    const inp=$("#"+(prefix==="elec"?"eSearch":"dSearch"));
+    const btn=$("#"+(prefix==="elec"?"eSearchBtn":"dSearchBtn"));
+    if(inp){
+      inp.addEventListener("keydown",function(e){
+        if(e.key==="Enter"){
+          e.preventDefault();
+          const s=docSearch[prefix];
+          if(s.term===inp.value.trim()&&s.hits.length){nextHit(prefix,e.shiftKey?-1:1);}
+          else{searchInPdf(prefix,inp.value.trim());}
+        }
+      });
+    }
+    if(btn)btn.onclick=function(){
+      const s=docSearch[prefix];
+      if(s.term===inp.value.trim()&&s.hits.length){nextHit(prefix,1);}
+      else{searchInPdf(prefix,inp.value.trim());}
+    };
+  });
+
 })();
 </script>
 
@@ -239,7 +296,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="elecTitle">Esquemas eléctricos</span>
             <button class="abtn" id="eZoomOut">−</button><button class="abtn" id="eZoomIn">+</button><button class="abtn" id="eFit">Encuadrar</button>
-            <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button>
+            <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button><div class="pdfSearch"><input type="search" id="eSearch" placeholder="Buscar texto…"/><button class="abtn" id="eSearchBtn">🔍</button><span id="eSearchInfo" class="mono"></span></div>
           </div>
           <div class="viewarea" id="elecViewarea">
             <div class="pan" id="elecPan"><img id="elecImg" alt=""/></div>
@@ -253,7 +310,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="docTitle">Documentación técnica</span>
             <button class="abtn" id="dZoomOut">−</button><button class="abtn" id="dZoomIn">+</button><button class="abtn" id="dFit">Encuadrar</button>
-            <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button>
+            <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button><div class="pdfSearch"><input type="search" id="dSearch" placeholder="Buscar texto…"/><button class="abtn" id="dSearchBtn">🔍</button><span id="dSearchInfo" class="mono"></span></div>
           </div>
           <div class="viewarea" id="docViewarea">
             <div class="pan" id="docPan"><img id="docImg" alt=""/></div>
@@ -715,6 +772,57 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       results.appendChild(div);
     });
     if(found.length>50)results.innerHTML+='<div style="color:var(--faint);margin-top:10px">Mostrando 50 de '+found.length+' resultados.</div>';
+  });
+
+  // ---- PDF text search ----
+  const docSearch={elec:{hits:[],idx:-1,term:""},doc:{hits:[],idx:-1,term:""}};
+  async function searchInPdf(prefix,term){
+    const st=docState[prefix];
+    const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
+    if(!st.doc||!term){if(info)info.textContent="";docSearch[prefix]={hits:[],idx:-1,term:""};return;}
+    if(info)info.textContent="buscando…";
+    const q=term.toLowerCase();
+    const hits=[];
+    for(let pn=1;pn<=st.pages;pn++){
+      try{
+        const page=await st.doc.getPage(pn);
+        const tc=await page.getTextContent();
+        const txt=tc.items.map(i=>i.str||"").join(" ").toLowerCase();
+        let pos=txt.indexOf(q);
+        let count=0;
+        while(pos>=0&&count<20){hits.push({page:pn});count++;pos=txt.indexOf(q,pos+q.length);}
+      }catch(e){}
+    }
+    docSearch[prefix]={hits:hits,idx:hits.length?0:-1,term:term};
+    if(info)info.textContent=hits.length?("1/"+hits.length):"sin resultados";
+    if(hits.length)await renderDocPage(prefix,hits[0].page);
+  }
+  function nextHit(prefix,dir){
+    const s=docSearch[prefix];
+    if(!s.hits.length)return;
+    s.idx=(s.idx+dir+s.hits.length)%s.hits.length;
+    const info=$("#"+(prefix==="elec"?"eSearchInfo":"dSearchInfo"));
+    if(info)info.textContent=(s.idx+1)+"/"+s.hits.length;
+    renderDocPage(prefix,s.hits[s.idx].page);
+  }
+  ["elec","doc"].forEach(function(prefix){
+    const inp=$("#"+(prefix==="elec"?"eSearch":"dSearch"));
+    const btn=$("#"+(prefix==="elec"?"eSearchBtn":"dSearchBtn"));
+    if(inp){
+      inp.addEventListener("keydown",function(e){
+        if(e.key==="Enter"){
+          e.preventDefault();
+          const s=docSearch[prefix];
+          if(s.term===inp.value.trim()&&s.hits.length){nextHit(prefix,e.shiftKey?-1:1);}
+          else{searchInPdf(prefix,inp.value.trim());}
+        }
+      });
+    }
+    if(btn)btn.onclick=function(){
+      const s=docSearch[prefix];
+      if(s.term===inp.value.trim()&&s.hits.length){nextHit(prefix,1);}
+      else{searchInPdf(prefix,inp.value.trim());}
+    };
   });
 
 })();
