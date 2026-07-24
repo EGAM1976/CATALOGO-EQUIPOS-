@@ -182,6 +182,11 @@
            "nombre": "ENSAMBLE GENERAL.stl",
            "tipo": "3D",
            "proyecto": "proyectos/ENSAMBLE_GENERAL.json"
+          },
+          {
+           "nombre": "septinmo_SpareParts_ESP.pdf",
+           "tipo": "2D",
+           "proyecto": "proyectos/septimoWF_SpareParts_ESP_2d.json"
           }
          ],
          "electricos": [],
