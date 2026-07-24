@@ -306,6 +306,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     $("#adminBtns").style.display=on?"flex":"none";
     $("#unlockAdmin").style.display=on?"none":"";
     if(on){const base=location.href.replace(/[^/]*$/,"");$("#goEditor").href=base+"catalogo_editor.html";$("#goExplo").href=base+"explosionado.html";}
+    // Rebuild tree so per-sheet admin buttons (🗑 ✏️) appear/disappear immediately
+    if(DATA){
+      var savedCtx=curCtx;
+      buildTree();
+      if(savedCtx&&savedCtx.mq)expandToMachine(savedCtx);
+    }
+    // Show/hide toolbar edit buttons
+    if(typeof showEditButtons==="function")showEditButtons(on);
   }
   if(isAdmin())showAdmin(true);
   $("#unlockAdmin").onclick=async function(){
@@ -362,26 +370,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function expandToMachine(ctx){
     if(!ctx||!ctx.mq)return;
     // Match by NAME (not object reference) because buildTree creates new objects
-    var names=[ctx.pl&&ctx.pl.nombre,ctx.zo&&ctx.zo.nombre,ctx.li&&ctx.li.nombre,ctx.mq&&ctx.mq.nombre].filter(Boolean);
-    var step=0;
-    function expandNext(){
-      if(step>=names.length){
-        // All levels open — now open the Catálogo de piezas category of this machine
-        setTimeout(function(){
-          var cat=catNodeRegistry.find(function(r){return r.mq&&r.mq.nombre===ctx.mq.nombre&&r.kind==="piezas";});
-          if(cat)cat.open();
-          // Highlight & scroll to the machine
-          var mqReg=nodeRegistry.find(function(r){return r.kind==="máquina"&&r.item.nombre===ctx.mq.nombre;});
-        },50);
-        return;
-      }
-      var targetName=names[step];
-      var kinds=["planta","zona","línea","máquina"];
-      var reg=nodeRegistry.find(function(r){return r.kind===kinds[step]&&r.item.nombre===targetName;});
-      if(reg){reg.expand();step++;setTimeout(expandNext,40);}
-      else{step++;setTimeout(expandNext,20);}
-    }
-    expandNext();
+    var levels=[["planta",ctx.pl],["zona",ctx.zo],["línea",ctx.li],["máquina",ctx.mq]];
+    // Expand each level synchronously — expanding a node creates its children (and registers them) immediately
+    levels.forEach(function(pair){
+      var kind=pair[0],obj=pair[1];
+      if(!obj)return;
+      var reg=nodeRegistry.find(function(r){return r.kind===kind&&r.item.nombre===obj.nombre;});
+      if(reg)reg.expand();
+    });
+    // Now the machine's category nodes exist — open the Catálogo de piezas category
+    var cat=catNodeRegistry.find(function(r){return r.mq&&r.mq.nombre===ctx.mq.nombre&&r.kind==="piezas";});
+    if(cat)cat.open();
   }
   function makeNode(item,icon,kind,childrenFn){
     const div=document.createElement("div");div.className="tnode";
@@ -1070,10 +1069,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function showEditButtons(on){
     const ids=["vEdit","vGhCfg"];
     ids.forEach(function(id){const el=$("#"+id);if(el)el.style.display=on?"":"none";});
+    // also toggle the extra sheet-management buttons
+    ["vNewSheet","vRename","vSetImg"].forEach(function(id){var e=$("#"+id);if(e)e.style.display=on?"":"none";});
   }
-  // Show edit controls when admin unlocked
-  const _origShowAdmin=showAdmin;
-  showAdmin=function(on){_origShowAdmin(on);showEditButtons(on);};
   if(isAdmin())showEditButtons(true);
 
   $("#vGhCfg").onclick=ghModal;
@@ -1191,15 +1189,6 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       else{searchInPdf(prefix,inp.value.trim());}
     };
   });
-
-
-  // ---- Mostrar botones nuevos con admin ----
-  const _showEdit2=showEditButtons;
-  showEditButtons=function(on){
-    _showEdit2(on);
-    ["vNewSheet","vRename","vSetImg"].forEach(function(id){var e=$("#"+id);if(e)e.style.display=on?"":"none";});
-  };
-  if(isAdmin())showEditButtons(true);
 
   // ---- Crear hoja en blanco ----
   $("#vNewSheet").onclick=async function(){
