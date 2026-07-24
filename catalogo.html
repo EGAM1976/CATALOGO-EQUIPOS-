@@ -444,8 +444,32 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     const chip=document.createElement("span");chip.className="tcount";
     chip.textContent=tipo==="piezas"?(d.tipo||"").toUpperCase():(d.categoria||"").toUpperCase();
     label.appendChild(nm);label.appendChild(chip);
-    // Delete button (admin only)
+    // Admin buttons: rename + delete (work directly from the tree, no need to open the sheet)
     if(isAdmin()){
+      const ren=document.createElement("span");
+      ren.textContent="✏️";ren.title="Renombrar esta hoja";
+      ren.style.cssText="cursor:pointer;font-size:11px;opacity:.5;margin-left:6px";
+      ren.onmouseenter=function(){ren.style.opacity="1";};
+      ren.onmouseleave=function(){ren.style.opacity=".5";};
+      ren.onclick=async function(ev){
+        ev.stopPropagation();
+        if(!GH.ready()){alert("Conecta GitHub primero (botón ⚙).");ghModal();return;}
+        var nuevo=prompt("Nuevo nombre de la hoja:",d.nombre||"");
+        if(nuevo===null)return;nuevo=nuevo.trim();if(!nuevo)return;
+        try{
+          d.nombre=nuevo;nm.textContent=nuevo;
+          await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Renombrar hoja");
+          // Also rename inside the project file (for piezas)
+          if(tipo==="piezas"&&d.proyecto){
+            try{
+              var r=await fetch(d.proyecto,{cache:"no-cache"});
+              if(r.ok){var prj=await r.json();prj.name=nuevo;await GH.putFile(d.proyecto,JSON.stringify(prj),"Renombrar hoja (archivo)");}
+            }catch(e){}
+          }
+        }catch(e){alert("No se pudo renombrar: "+(e.message||e));}
+      };
+      label.appendChild(ren);
+
       const del=document.createElement("span");
       del.textContent="🗑";del.title="Borrar esta hoja";
       del.style.cssText="cursor:pointer;font-size:11px;opacity:.5;margin-left:4px";
@@ -454,13 +478,12 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       del.onclick=async function(ev){
         ev.stopPropagation();
         if(!GH.ready()){alert("Conecta GitHub primero (botón ⚙).");ghModal();return;}
-        if(!confirm('¿Borrar la hoja "'+(d.nombre||"")+'" de esta máquina?\n\nSe quita del catálogo. El archivo queda en el repositorio por si lo necesitas.'))return;
+        if(!confirm('¿Borrar la hoja "'+(d.nombre||"")+'"?\n\nSe quita del catálogo. El archivo queda en el repositorio por si lo necesitas.'))return;
         try{
           var arr=tipo==="piezas"?mq.despieces:tipo==="electrico"?mq.electricos:mq.documentos;
           var i=arr.indexOf(d);if(i>=0)arr.splice(i,1);
           await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
           div.remove();
-          // update count chip on parent category
           var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===tipo;});
           if(reg)reg.open();
         }catch(e){alert("No se pudo borrar: "+(e.message||e));}
