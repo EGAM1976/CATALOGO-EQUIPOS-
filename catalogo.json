@@ -178,7 +178,27 @@
            "tipo": "2D",
            "proyecto": "proyectos/septimoWF_SpareParts_ESP_2d.json"
           }
-         ]
+         ],
+         "electricos": [],
+         "documentos": []
+        },
+        {
+         "id": "paletizadora",
+         "nombre": "Paletizadora",
+         "marca": "Sidel",
+         "despieces": []
+        },
+        {
+         "id": "etiquetadora",
+         "nombre": "Etiquetadora",
+         "marca": "Sidel",
+         "despieces": []
+        },
+        {
+         "id": "empacadora",
+         "nombre": "Empacadora",
+         "marca": "Sidel",
+         "despieces": []
         }
        ]
       },
