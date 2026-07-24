@@ -1105,12 +1105,31 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         target.despieces=target.despieces||[];
         target.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
         await GH.putFile("catalogo.json",JSON.stringify(cat,null,1),"Enlazar "+nombre);
-        alert("Hoja creada y enlazada a "+target.nombre+".\nEspera ~1 min y recarga con Ctrl+Shift+R.");
-      }else{
-        alert("Hoja creada en "+path+".\nEnlázala luego desde el Editor de Catálogo.");
+        // Update in-memory catalog + tree so it appears now
+        DATA=cat;buildTree();
       }
+      // Load the new blank sheet immediately in edit mode
+      curProject=prj;curProjectPath=path;
+      vImg={w:prj.imgW,h:prj.imgH,src:prj.image||blankCanvas(nombre)};
+      vMarkers=prj.markers.map(function(m){return Object.assign({},m);});
+      vSel=null;
+      $("#viewTitle").textContent=nombre;
+      $("#viewerEmpty").classList.add("hidden");
+      document.querySelectorAll(".tab")[0].click();
+      setImage();renderOverlay();
+      // Turn on edit mode automatically
+      editMode=true;
+      $("#vEdit").textContent="✕ Salir edición";
+      $("#vEdit").style.background="#ffc107";
+      $("#vSaveGH").style.display="";
+      $("#vAddRow").style.display="";
+      renderTable();
     }catch(e){alert("Error: "+(e.message||e));}
   };
+
+  function blankCanvas(txt){
+    return "data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#fafafa" stroke="#ddd"/><text x="600" y="390" text-anchor="middle" font-family="Inter,sans-serif" font-size="22" fill="#bbb">'+(txt||"Hoja en blanco")+'</text><text x="600" y="420" text-anchor="middle" font-family="Inter,sans-serif" font-size="14" fill="#ccc">Usa 🖼 Imagen para insertar el dibujo</text></svg>');
+  }
 
   function pickMachine(cat){
     return new Promise(function(resolve){
