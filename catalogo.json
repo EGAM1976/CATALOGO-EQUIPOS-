@@ -142,7 +142,32 @@
       {
        "id": "linea-3",
        "nombre": "Linea 3",
-       "maquinas": []
+       "maquinas": [
+        {
+         "id": "llenadora",
+         "nombre": "Llenadora",
+         "marca": "Sidel",
+         "despieces": []
+        },
+        {
+         "id": "paletizadora",
+         "nombre": "Paletizadora",
+         "marca": "Sidel",
+         "despieces": []
+        },
+        {
+         "id": "empacadora",
+         "nombre": "Empacadora",
+         "marca": "Sidel",
+         "despieces": []
+        },
+        {
+         "id": "etiquetadora",
+         "nombre": "Etiquetadora",
+         "marca": "Sidel",
+         "despieces": []
+        }
+       ]
       },
       {
        "id": "linea-4",
@@ -178,27 +203,7 @@
            "tipo": "2D",
            "proyecto": "proyectos/septimoWF_SpareParts_ESP_2d.json"
           }
-         ],
-         "electricos": [],
-         "documentos": []
-        },
-        {
-         "id": "paletizadora",
-         "nombre": "Paletizadora",
-         "marca": "Sidel",
-         "despieces": []
-        },
-        {
-         "id": "etiquetadora",
-         "nombre": "Etiquetadora",
-         "marca": "Sidel",
-         "despieces": []
-        },
-        {
-         "id": "empacadora",
-         "nombre": "Empacadora",
-         "marca": "Sidel",
-         "despieces": []
+         ]
         }
        ]
       },
