@@ -360,18 +360,28 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   }
   var nodeRegistry=[]; // {item, kind, expand}
   function expandToMachine(ctx){
-    if(!ctx)return;
-    // Expand planta, zona, linea, maquina in order
-    [ctx.pl,ctx.zo,ctx.li,ctx.mq].forEach(function(obj){
-      if(!obj)return;
-      var reg=nodeRegistry.find(function(r){return r.item===obj;});
-      if(reg)reg.expand();
-    });
-    // Then open the Catálogo de piezas category of that machine
-    setTimeout(function(){
-      var cat=catNodeRegistry.find(function(r){return r.mq===ctx.mq&&r.kind==="piezas";});
-      if(cat)cat.open();
-    },40);
+    if(!ctx||!ctx.mq)return;
+    // Match by NAME (not object reference) because buildTree creates new objects
+    var names=[ctx.pl&&ctx.pl.nombre,ctx.zo&&ctx.zo.nombre,ctx.li&&ctx.li.nombre,ctx.mq&&ctx.mq.nombre].filter(Boolean);
+    var step=0;
+    function expandNext(){
+      if(step>=names.length){
+        // All levels open — now open the Catálogo de piezas category of this machine
+        setTimeout(function(){
+          var cat=catNodeRegistry.find(function(r){return r.mq&&r.mq.nombre===ctx.mq.nombre&&r.kind==="piezas";});
+          if(cat)cat.open();
+          // Highlight & scroll to the machine
+          var mqReg=nodeRegistry.find(function(r){return r.kind==="máquina"&&r.item.nombre===ctx.mq.nombre;});
+        },50);
+        return;
+      }
+      var targetName=names[step];
+      var kinds=["planta","zona","línea","máquina"];
+      var reg=nodeRegistry.find(function(r){return r.kind===kinds[step]&&r.item.nombre===targetName;});
+      if(reg){reg.expand();step++;setTimeout(expandNext,40);}
+      else{step++;setTimeout(expandNext,20);}
+    }
+    expandNext();
   }
   function makeNode(item,icon,kind,childrenFn){
     const div=document.createElement("div");div.className="tnode";
