@@ -402,18 +402,18 @@
   // Full spare-part field definitions
   const PART_FIELDS=[
     {key:"pos",label:"Pos",w:"50px",mono:true},
-    {key:"cantPos",label:"Cant Pos",w:"60px"},
+    {key:"parte",label:"N° Parte",w:"120px",mono:true,color:"#CC0033"},
+    {key:"parteSuc",label:"N° Parte Suc",w:"120px",mono:true},
+    {key:"sap1",label:"SAP",w:"90px",mono:true,color:"#0066CC"},
+    {key:"sap2",label:"SAP NAC",w:"90px",mono:true,color:"#28a745"},
+    {key:"denomFab",label:"Denominación Fabricante",w:"auto"},
+    {key:"denomCom",label:"Denominación Comercial",w:"auto"},
+    {key:"cantPos",label:"Cant",w:"55px"},
     {key:"um",label:"UM",w:"50px"},
     {key:"indUso",label:"Ind Uso",w:"70px"},
-    {key:"parte",label:"N° Parte inicial",w:"120px",mono:true,color:"#CC0033"},
-    {key:"parteSuc",label:"N° Parte sucesor",w:"120px",mono:true},
-    {key:"sap1",label:"SAP 1 (Original)",w:"120px",mono:true,color:"#0066CC"},
-    {key:"sap2",label:"SAP 2 (Nacional)",w:"120px",mono:true,color:"#28a745"},
-    {key:"denomFab",label:"Denominación Fabricante",w:"auto"},
-    {key:"denomCom",label:"Denominación comercial",w:"auto"},
-    {key:"freqMtto",label:"Frecuencia Mtto",w:"100px"},
-    {key:"cantMtto",label:"Cant Mtto",w:"70px"},
-    {key:"sapEquipo",label:"SAP Equipo",w:"110px",mono:true},
+    {key:"freqMtto",label:"Frec Mtto",w:"90px"},
+    {key:"cantMtto",label:"Cant Mtto",w:"75px"},
+    {key:"sapEquipo",label:"SAP Equipo",w:"100px",mono:true},
     {key:"componente",label:"Componente",w:"120px"},
   ];
   function emptyPart(){const o={};PART_FIELDS.forEach(f=>o[f.key]="");return o;}

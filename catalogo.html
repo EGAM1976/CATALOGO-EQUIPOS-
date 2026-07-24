@@ -220,18 +220,18 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           <div class="ptable-wrap">
             <table class="ptable">
               <thead><tr>
-                <th style="width:45px">Pos</th>
+                <th style="width:40px">Pos</th>
+                <th style="width:100px">N° Parte</th>
+                <th style="width:100px">N° Parte Suc.</th>
+                <th style="width:70px">SAP</th>
+                <th style="width:70px">SAP NAC</th>
+                <th>Denominación Fabricante</th>
+                <th>Denominación Comercial</th>
                 <th style="width:40px">Cant</th>
                 <th style="width:35px">UM</th>
                 <th style="width:55px">Ind Uso</th>
-                <th style="width:100px">N° Parte</th>
-                <th style="width:100px">N° Parte Suc.</th>
-                <th style="width:100px">SAP 1 (Orig)</th>
-                <th style="width:100px">SAP 2 (Nac)</th>
-                <th>Denominación Fab.</th>
-                <th>Denominación Com.</th>
                 <th style="width:70px">Frec Mtto</th>
-                <th style="width:55px">Cant Mtto</th>
+                <th style="width:60px">Cant Mtto</th>
                 <th style="width:90px">SAP Equipo</th>
                 <th style="width:90px">Componente</th>
               </tr></thead>
@@ -782,7 +782,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     $("#pcount").textContent=vMarkers.length+" piezas";
     vMarkers.forEach(function(m){
       var tr=document.createElement("tr");tr.setAttribute("data-id",m.id);
-      var PFK=[["id","pos"],["cantPos",""],["um",""],["indUso",""],["parte","code"],["parteSuc","code"],["sap1","sap"],["sap2","sap"],["denomFab",""],["denomCom",""],["freqMtto",""],["cantMtto",""],["sapEquipo","code"],["componente",""]];
+      var PFK=[["id","pos"],["parte","code"],["parteSuc","code"],["sap1","sap"],["sap2","sap"],["denomFab",""],["denomCom",""],["cantPos",""],["um",""],["indUso",""],["freqMtto",""],["cantMtto",""],["sapEquipo","code"],["componente",""]];
       if(editMode){
         tr.innerHTML="";
         PFK.forEach(function(pair){
@@ -806,15 +806,15 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         tr.appendChild(tdDel);
       }else{
         tr.innerHTML='<td class="pos">'+esc(m.id)+'</td>'
-        +'<td>'+esc(m.cantPos||'')+'</td>'
-        +'<td>'+esc(m.um||'')+'</td>'
-        +'<td>'+esc(m.indUso||'')+'</td>'
         +'<td class="code">'+esc(m.parte||'')+'</td>'
         +'<td class="code">'+esc(m.parteSuc||'')+'</td>'
         +'<td class="sap">'+esc(trunc(m.sap1,6))+'</td>'
         +'<td class="sap" style="color:#28a745">'+esc(trunc(m.sap2,6))+'</td>'
         +'<td title="'+esc(m.denomFab||'')+'">'+esc(trunc(m.denomFab,40))+'</td>'
         +'<td title="'+esc(m.denomCom||'')+'">'+esc(trunc(m.denomCom,40))+'</td>'
+        +'<td>'+esc(m.cantPos||'')+'</td>'
+        +'<td>'+esc(m.um||'')+'</td>'
+        +'<td>'+esc(m.indUso||'')+'</td>'
         +'<td>'+esc(m.freqMtto||'')+'</td>'
         +'<td>'+esc(m.cantMtto||'')+'</td>'
         +'<td class="code">'+esc(m.sapEquipo||'')+'</td>'
@@ -834,7 +834,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // ---- CSV export ----
   $("#vCsv").onclick=function(){
     if(!vMarkers.length)return;
-    var csv="\ufeffPos,Cant,UM,Ind_Uso,N_Parte,N_Parte_Suc,SAP1_Original,SAP2_Nacional,Denom_Fabricante,Denom_Comercial,Freq_Mtto,Cant_Mtto,SAP_Equipo,Componente\n";
+    var csv="\ufeffPos,N_Parte,N_Parte_Suc,SAP,SAP_NAC,Denom_Fabricante,Denom_Comercial,Cant,UM,Ind_Uso,Frec_Mtto,Cant_Mtto,SAP_Equipo,Componente\n";
     vMarkers.forEach(function(m){
       csv+=m.id+","+csvCell(m.parte)+","+csvCell(m.text)+","+csvCell(m.sap)+"\n";
     });
@@ -1385,7 +1385,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   $("#vExportAll").onclick=async function(){
     if(!DATA){alert("El catálogo aún no cargó.");return;}
     var btn=$("#vExportAll");var oldTxt=btn.textContent;btn.disabled=true;
-    var PF=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+    var PF=["pos","parte","parteSuc","sap1","sap2","denomFab","denomCom","cantPos","um","indUso","freqMtto","cantMtto","sapEquipo","componente"];
     var rows=[];
     var jobs=[];
     (DATA.plantas||[]).forEach(function(pl){
@@ -1423,7 +1423,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     }
     btn.textContent=oldTxt;btn.disabled=false;
     if(!rows.length){alert("No se encontraron datos para exportar.");return;}
-    var head=["Planta","Zona","Linea","Equipo","Hoja","ID","Pos","Cant","UM","Ind_Uso","N_Parte","N_Parte_Suc","SAP1","SAP2","Denom_Fabricante","Denom_Comercial","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente"];
+    var head=["Planta","Zona","Linea","Equipo","Hoja","ID","Pos","N_Parte","N_Parte_Suc","SAP","SAP_NAC","Denom_Fabricante","Denom_Comercial","Cant","UM","Ind_Uso","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente"];
     var csv="\ufeff"+head.join(",")+"\n";
     rows.forEach(function(r){csv+=r.map(csvCell).join(",")+"\n";});
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
