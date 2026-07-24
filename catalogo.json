@@ -209,7 +209,14 @@
          "id": "paletizadora",
          "nombre": "Paletizadora",
          "marca": "Sidel",
-         "despieces": []
+         "despieces": [],
+         "electricos": [
+          {
+           "nombre": "SIEU0025ED01es",
+           "archivo": "documentos/SIEU0025ED01es.pdf"
+          }
+         ],
+         "documentos": []
         },
         {
          "id": "etiquetadora",
