@@ -54,6 +54,8 @@ body{background:#fff;color:var(--text);font-family:"Inter",system-ui,sans-serif;
 .tchildren{padding-left:14px;display:none}
 .tchildren.open{display:block}
 .tnode .tlabel.desp{padding-left:20px}
+.tnode .tlabel.tcat{font-weight:600;color:var(--accent);font-size:11.5px}
+.tnode .tlabel.tcat .tcount{background:var(--panel-2);border-radius:8px;padding:0 5px;color:var(--muted)}
 .tnode .tlabel.desp .ticon{color:var(--accent)}
 
 /* Center: viewer */
@@ -319,9 +321,24 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
           return (zo.lineas||[]).map(li=>makeNode(li,"▸","línea",function(){
             return (li.maquinas||[]).map(mq=>makeNode(mq,"▸","máquina",function(){
-              const des=mq.despieces||[];
+              const cats=[];
+              // 1) Catálogo de piezas (despieces)
+              const des=(mq.despieces||[]).slice();
               if(mq.proyecto&&!des.length)des.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
-              return des.map(d=>makeDespNode(d,mq));
+              cats.push(makeCategoryNode("📋 Catálogo de piezas",des.length,function(){
+                return des.length?des.map(d=>makeItemNode(d,mq,"piezas")):[makeEmptyNode("Sin despieces")];
+              }));
+              // 2) Esquema eléctrico
+              const elec=mq.electricos||[];
+              cats.push(makeCategoryNode("⚡ Esquema eléctrico",elec.length,function(){
+                return elec.length?elec.map(d=>makeItemNode(d,mq,"electrico")):[makeEmptyNode("Sin esquemas")];
+              }));
+              // 3) Documentación
+              const docs=mq.documentos||[];
+              cats.push(makeCategoryNode("📖 Documentación",docs.length,function(){
+                return docs.length?docs.map(d=>makeItemNode(d,mq,"doc")):[makeEmptyNode("Sin documentos")];
+              }));
+              return cats;
             }));
           }));
         }));
@@ -346,21 +363,140 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     };
     return div;
   }
-  function makeDespNode(d,mq){
+  function makeCategoryNode(title,count,childrenFn){
+    const div=document.createElement("div");div.className="tnode";
+    const label=document.createElement("div");label.className="tlabel tcat";
+    const arrow=document.createElement("span");arrow.className="tarrow";arrow.textContent="▸";
+    const nm=document.createElement("span");nm.className="tname";nm.textContent=title;
+    const chip=document.createElement("span");chip.className="tcount";chip.textContent=count||"0";
+    label.appendChild(arrow);label.appendChild(nm);label.appendChild(chip);
+    div.appendChild(label);
+    let childBox=null,loaded=false;
+    label.onclick=function(){
+      if(!childBox){childBox=document.createElement("div");childBox.className="tchildren";div.appendChild(childBox);}
+      if(!loaded){loaded=true;childrenFn().forEach(function(k){childBox.appendChild(k);});}
+      const open=childBox.classList.toggle("open");
+      arrow.classList.toggle("open",open);
+    };
+    return div;
+  }
+  function makeEmptyNode(txt){
     const div=document.createElement("div");div.className="tnode";
     const label=document.createElement("div");label.className="tlabel desp";
-    const ic=document.createElement("span");ic.className="ticon";ic.textContent="";
-    const nm=document.createElement("span");nm.className="tname";nm.textContent=d.nombre||"Despiece";
-    const chip=document.createElement("span");chip.className="tcount";chip.textContent=(d.tipo||"").toUpperCase();
-    label.appendChild(ic);label.appendChild(nm);label.appendChild(chip);
+    label.style.color="var(--faint)";label.style.fontStyle="italic";label.style.fontSize="11px";
+    label.textContent=txt;
+    div.appendChild(label);
+    return div;
+  }
+  function makeItemNode(d,mq,tipo){
+    const div=document.createElement("div");div.className="tnode";
+    const label=document.createElement("div");label.className="tlabel desp";
+    const nm=document.createElement("span");nm.className="tname";nm.textContent=d.nombre||"(sin nombre)";
+    const chip=document.createElement("span");chip.className="tcount";
+    chip.textContent=tipo==="piezas"?(d.tipo||"").toUpperCase():(d.categoria||"").toUpperCase();
+    label.appendChild(nm);label.appendChild(chip);
     div.appendChild(label);
     label.onclick=function(){
       document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
       label.classList.add("sel");
-      loadDespiece(d,mq);
+      if(tipo==="piezas"){
+        document.querySelectorAll(".tab")[0].click();
+        loadDespiece(d,mq);
+      }else if(tipo==="electrico"){
+        document.querySelectorAll(".tab")[1].click();
+        loadDocument(d,mq,"elec");
+      }else{
+        document.querySelectorAll(".tab")[2].click();
+        loadDocument(d,mq,"doc");
+      }
     };
     return div;
   }
+
+  // ---- Load electrical schematic / documentation PDF ----
+  async function loadDocument(d,mq,which){
+    const path=d.archivo||d.proyecto;
+    const prefix=which==="elec"?"elec":"doc";
+    const titleEl=$("#"+prefix+"Title"),emptyEl=$("#"+prefix+"Empty"),imgEl=$("#"+prefix+"Img"),panEl=$("#"+prefix+"Pan");
+    if(titleEl)titleEl.textContent=(mq.nombre||"")+" · "+(d.nombre||"");
+    if(!path){if(emptyEl){emptyEl.classList.remove("hidden");emptyEl.textContent="Este documento no tiene archivo asignado.";}return;}
+    if(emptyEl)emptyEl.classList.add("hidden");
+    try{
+      if(/\.pdf$/i.test(path)){
+        const resp=await fetch(path,{cache:"no-cache"});
+        if(!resp.ok)throw new Error("HTTP "+resp.status);
+        const buf=await resp.arrayBuffer();
+        const doc=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+        docState[prefix]={doc:doc,page:1,pages:doc.numPages};
+        await renderDocPage(prefix,1);
+      }else{
+        if(imgEl){imgEl.src=path;imgEl.onload=function(){if(panEl){panEl.style.width=imgEl.naturalWidth+"px";panEl.style.height=imgEl.naturalHeight+"px";}fitDocView(prefix);};}
+        docState[prefix]={doc:null,page:1,pages:1};
+      }
+      updateDocPageUI(prefix);
+    }catch(e){
+      if(emptyEl){emptyEl.classList.remove("hidden");emptyEl.textContent="No se pudo cargar: "+path+"  ("+e.message+")";}
+    }
+  }
+  const docState={elec:{doc:null,page:1,pages:1},doc:{doc:null,page:1,pages:1}};
+  const docZoom={elec:1,doc:1},docPan={elec:{x:0,y:0},doc:{x:0,y:0}};
+  async function renderDocPage(prefix,n){
+    const st=docState[prefix];if(!st.doc)return;
+    const page=await st.doc.getPage(n);
+    const base=page.getViewport({scale:1});
+    const scale=Math.min(3,Math.max(1.5,1600/base.width));
+    const vp=page.getViewport({scale});
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.floor(vp.width);canvas.height=Math.floor(vp.height);
+    await page.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+    const imgEl=$("#"+prefix+"Img"),panEl=$("#"+prefix+"Pan");
+    if(imgEl){imgEl.src=canvas.toDataURL("image/png");}
+    if(panEl){panEl.style.width=canvas.width+"px";panEl.style.height=canvas.height+"px";}
+    st.page=n;
+    fitDocView(prefix);
+    updateDocPageUI(prefix);
+  }
+  function fitDocView(prefix){
+    const area=$("#"+(prefix==="elec"?"elecViewarea":"docViewarea"));
+    const pan=$("#"+prefix+"Pan");
+    if(!area||!pan)return;
+    const pw=parseFloat(pan.style.width)||1,ph=parseFloat(pan.style.height)||1;
+    const z=Math.min(area.clientWidth/pw,area.clientHeight/ph)*0.96;
+    docZoom[prefix]=z;
+    docPan[prefix].x=(area.clientWidth-pw*z)/2;
+    docPan[prefix].y=(area.clientHeight-ph*z)/2;
+    applyDocPan(prefix);
+  }
+  function applyDocPan(prefix){
+    const pan=$("#"+prefix+"Pan");if(!pan)return;
+    pan.style.transform="translate("+docPan[prefix].x+"px,"+docPan[prefix].y+"px) scale("+docZoom[prefix]+")";
+  }
+  function updateDocPageUI(prefix){
+    const st=docState[prefix];
+    const lbl=$("#"+(prefix==="elec"?"ePageLabel":"dPageLabel"));
+    if(lbl)lbl.textContent=st.pages>1?("Pág "+st.page+"/"+st.pages):"";
+  }
+  // Wire doc viewer controls
+  ["elec","doc"].forEach(function(prefix){
+    const area=$("#"+(prefix==="elec"?"elecViewarea":"docViewarea"));
+    const zi=$("#"+(prefix==="elec"?"eZoomIn":"dZoomIn"));
+    const zo=$("#"+(prefix==="elec"?"eZoomOut":"dZoomOut"));
+    const ft=$("#"+(prefix==="elec"?"eFit":"dFit"));
+    const pv=$("#"+(prefix==="elec"?"ePrev":"dPrev"));
+    const nx=$("#"+(prefix==="elec"?"eNext":"dNext"));
+    if(zi)zi.onclick=function(){docZoom[prefix]*=1.25;applyDocPan(prefix);};
+    if(zo)zo.onclick=function(){docZoom[prefix]/=1.25;applyDocPan(prefix);};
+    if(ft)ft.onclick=function(){fitDocView(prefix);};
+    if(pv)pv.onclick=function(){const st=docState[prefix];if(st.doc&&st.page>1)renderDocPage(prefix,st.page-1);};
+    if(nx)nx.onclick=function(){const st=docState[prefix];if(st.doc&&st.page<st.pages)renderDocPage(prefix,st.page+1);};
+    if(area){
+      let ps=null;
+      area.addEventListener("pointerdown",function(e){ps={x:e.clientX,y:e.clientY,px:docPan[prefix].x,py:docPan[prefix].y};});
+      area.addEventListener("pointermove",function(e){if(!ps)return;docPan[prefix].x=ps.px+(e.clientX-ps.x);docPan[prefix].y=ps.py+(e.clientY-ps.y);applyDocPan(prefix);});
+      area.addEventListener("pointerup",function(){ps=null;});
+      area.addEventListener("wheel",function(e){e.preventDefault();docZoom[prefix]*=e.deltaY<0?1.12:1/1.12;applyDocPan(prefix);},{passive:false});
+    }
+  });
 
   // ---- Load despiece ----
   async function loadDespiece(d,mq){
