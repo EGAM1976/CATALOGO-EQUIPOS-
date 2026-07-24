@@ -92,7 +92,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 .tab:hover{color:var(--text);background:var(--panel)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--panel)}
 .tabContent{flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden}
-.tabContent.active{display:flex}
+.tabContent.active{display:flex!important}
 .searchResult{padding:10px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.12s;background:#fff}
 .searchResult:hover{background:var(--panel);border-color:var(--accent)}
 .searchResult .sr-title{font-weight:700;font-size:13px;margin-bottom:3px;color:var(--text)}
@@ -186,7 +186,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       </div>
 
       <!-- Tab: Catálogo de piezas — image top, table bottom like Krones eCat -->
-      <div class="tabContent active" id="tabPiezas" style="display:flex;flex-direction:column">
+      <div class="tabContent active" id="tabPiezas">
         <div class="viewer" id="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar" id="viewToolbar">
             <button class="abtn" id="toggleTree" style="font-size:9px;padding:2px 6px" title="Ocultar/mostrar árbol">☰</button><span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
@@ -236,7 +236,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
       <!-- Tab: Esquema eléctrico -->
       <div class="tabContent" id="tabElectrico">
-        <div class="viewer">
+        <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="elecTitle">Esquemas eléctricos</span>
             <button class="abtn" id="eZoomOut">−</button><button class="abtn" id="eZoomIn">+</button><button class="abtn" id="eFit">Encuadrar</button>
             <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button>
@@ -250,7 +250,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
       <!-- Tab: Documentación -->
       <div class="tabContent" id="tabDocs">
-        <div class="viewer">
+        <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="docTitle">Documentación técnica</span>
             <button class="abtn" id="dZoomOut">−</button><button class="abtn" id="dZoomIn">+</button><button class="abtn" id="dFit">Encuadrar</button>
             <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button>
