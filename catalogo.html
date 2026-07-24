@@ -833,15 +833,32 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
   // ---- CSV export ----
   $("#vCsv").onclick=function(){
-    if(!vMarkers.length)return;
+    if(!vMarkers.length){alert("No hay repuestos para exportar.");return;}
     var csv="\ufeffPos,N_Parte,N_Parte_Suc,SAP,SAP_NAC,Denom_Fabricante,Denom_Comercial,Cant,UM,Ind_Uso,Frec_Mtto,Cant_Mtto,SAP_Equipo,Componente\n";
     vMarkers.forEach(function(m){
-      csv+=m.id+","+csvCell(m.parte)+","+csvCell(m.text)+","+csvCell(m.sap)+"\n";
+      csv+=[
+        csvCell(m.id||m.pos),
+        csvCell(m.parte),
+        csvCell(m.parteSuc),
+        csvCell(String(m.sap1||"").slice(0,6)),
+        csvCell(String(m.sap2||"").slice(0,6)),
+        csvCell(String(m.denomFab||"").slice(0,40)),
+        csvCell(String(m.denomCom||"").slice(0,40)),
+        csvCell(m.cantPos),
+        csvCell(m.um),
+        csvCell(m.indUso),
+        csvCell(m.freqMtto),
+        csvCell(m.cantMtto),
+        csvCell(m.sapEquipo),
+        csvCell(m.componente)
+      ].join(",")+"\n";
     });
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="repuestos.csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},400);
+    var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download=(curProject&&curProject.name?curProject.name.replace(/[^A-Za-z0-9._-]/g,"_"):"repuestos")+".csv";
+    document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},400);
   };
-  function csvCell(s){s=(s||"").replace(/"/g,'""');return /[",\n]/.test(s)?'"'+s+'"':s;}
+  function csvCell(s){s=String(s==null?"":s).replace(/"/g,'""');return /[",\n]/.test(s)?'"'+s+'"':s;}
 
   // ---- Resizer (drag to resize parts panel) ----
   var resizer=$("#resizer"),partsbar=$("#partsbar");
