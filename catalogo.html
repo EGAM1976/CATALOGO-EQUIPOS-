@@ -207,6 +207,135 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     };
   });
 
+  // ================= EDICIÓN EN EL CATÁLOGO =================
+  const GH={
+    cfg:{owner:"",repo:"",branch:"main",token:""},
+    load(){try{const s=JSON.parse(localStorage.getItem("acl:gh:cfg")||"{}");Object.assign(this.cfg,s);}catch(e){}
+      if(!this.cfg.owner||!this.cfg.repo){const m=location.hostname.match(/^([^.]+)\.github\.io$/);
+        if(m){this.cfg.owner=this.cfg.owner||m[1];
+          const seg=location.pathname.split("/").filter(Boolean);
+          if(seg.length&&!this.cfg.repo)this.cfg.repo=seg[0];}}
+      return this.cfg;},
+    save(){try{localStorage.setItem("acl:gh:cfg",JSON.stringify(this.cfg));}catch(e){}},
+    ready(){return !!(this.cfg.owner&&this.cfg.repo&&this.cfg.token);},
+    async req(path,opts){
+      const r=await fetch("https://api.github.com"+path,Object.assign({headers:{
+        "Authorization":"Bearer "+this.cfg.token,"Accept":"application/vnd.github+json"}},opts||{}));
+      if(!r.ok){const t=await r.text().catch(()=>"" );const e=new Error("GitHub "+r.status+": "+t.slice(0,200));e.status=r.status;throw e;}
+      return r.json();},
+    repoPath(p){return "/repos/"+this.cfg.owner+"/"+this.cfg.repo+"/contents/"+p.split("/").map(encodeURIComponent).join("/");},
+    async getSha(p){try{const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch));return j.sha||null;}catch(e){if(e.status===404)return null;throw e;}},
+    async putFile(p,str,msg){
+      const sha=await this.getSha(p);
+      const bytes=new TextEncoder().encode(str);let bin="";
+      const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+      const body={message:msg||("Actualizar "+p),content:btoa(bin),branch:this.cfg.branch};
+      if(sha)body.sha=sha;
+      return this.req(this.repoPath(p),{method:"PUT",body:JSON.stringify(body)});}
+  };
+  GH.load();
+
+  function ghModal(){
+    const back=document.createElement("div");
+    back.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px";
+    back.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;max-width:440px;width:100%;padding:22px">'
+      +'<h3 style="margin:0 0 12px;font-family:\'Space Grotesk\',sans-serif;font-size:16px;color:var(--accent)">Conectar con GitHub</h3>'
+      +'<div style="margin-bottom:10px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Usuario</label>'
+      +'<input id="ghO" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit"/></div>'
+      +'<div style="margin-bottom:10px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Repositorio</label>'
+      +'<input id="ghR" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit"/></div>'
+      +'<div style="margin-bottom:14px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Token</label>'
+      +'<input id="ghT" type="password" placeholder="github_pat_..." style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:monospace"/></div>'
+      +'<div style="display:flex;gap:8px"><button class="abtn" id="ghSave" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent)">Guardar</button>'
+      +'<button class="abtn" id="ghCancel">Cancelar</button></div></div>';
+    document.body.appendChild(back);
+    back.querySelector("#ghO").value=GH.cfg.owner||"";
+    back.querySelector("#ghR").value=GH.cfg.repo||"";
+    back.querySelector("#ghT").value=GH.cfg.token||"";
+    back.querySelector("#ghCancel").onclick=()=>back.remove();
+    back.addEventListener("click",e=>{if(e.target===back)back.remove();});
+    back.querySelector("#ghSave").onclick=()=>{
+      GH.cfg.owner=back.querySelector("#ghO").value.trim();
+      GH.cfg.repo=back.querySelector("#ghR").value.trim();
+      GH.cfg.token=back.querySelector("#ghT").value.trim();
+      GH.save();back.remove();
+      alert(GH.ready()?"GitHub conectado.":"Faltan datos.");
+    };
+  }
+
+  let editMode=false,curProjectPath=null,dirty=false;
+
+  function showEditButtons(on){
+    const ids=["vEdit","vGhCfg"];
+    ids.forEach(function(id){const el=$("#"+id);if(el)el.style.display=on?"":"none";});
+  }
+  // Show edit controls when admin unlocked
+  const _origShowAdmin=showAdmin;
+  showAdmin=function(on){_origShowAdmin(on);showEditButtons(on);};
+  if(isAdmin())showEditButtons(true);
+
+  $("#vGhCfg").onclick=ghModal;
+
+  $("#vEdit").onclick=function(){
+    if(!curProject){alert("Primero abre una lámina del árbol.");return;}
+    editMode=!editMode;
+    $("#vEdit").textContent=editMode?"✕ Salir edición":"✎ Editar";
+    $("#vEdit").style.background=editMode?"#ffc107":"";
+    $("#vSaveGH").style.display=editMode?"":"none";
+    $("#vAddRow").style.display=editMode?"":"none";
+    renderTable();renderOverlay();
+    if(editMode&&!GH.ready())setTimeout(function(){if(confirm("Para guardar cambios necesitas conectar GitHub. ¿Configurarlo ahora?"))ghModal();},200);
+  };
+
+  $("#vAddRow").onclick=function(){
+    if(!editMode)return;
+    var maxId=0;vMarkers.forEach(function(m){var n=parseInt(m.id,10);if(!isNaN(n)&&n>maxId)maxId=n;});
+    var o={id:String(maxId+1),x:-1,y:-1,noBalloon:true};
+    ["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"].forEach(function(k){o[k]="";});
+    o.pos=String(maxId+1);
+    vMarkers.push(o);dirty=true;renderTable();
+  };
+
+  // Click on image to place/move a balloon in edit mode
+  viewarea.addEventListener("click",function(e){
+    if(!editMode||!vSel)return;
+    if(e.target.closest(".balloon"))return;
+    var r=vpan.getBoundingClientRect();
+    var x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+    if(x<0||x>1||y<0||y>1)return;
+    var m=vMarkers.find(function(mm){return mm.id===vSel;});
+    if(!m)return;
+    m.x=x;m.y=y;m.noBalloon=false;dirty=true;
+    renderOverlay();
+  });
+
+  $("#vSaveGH").onclick=async function(){
+    if(!curProjectPath){alert("No hay archivo de proyecto asociado.");return;}
+    if(!GH.ready()){ghModal();return;}
+    var btn=$("#vSaveGH");btn.disabled=true;btn.textContent="Guardando…";
+    try{
+      var PF=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+      var prj=Object.assign({},curProject);
+      prj.markers=vMarkers.map(function(m){
+        var o={id:m.id,x:+(m.x||0).toFixed(4),y:+(m.y||0).toFixed(4)};
+        if(m.noBalloon)o.noBalloon=true;
+        PF.forEach(function(k){o[k]=m[k]||"";});
+        return o;
+      });
+      await GH.putFile(curProjectPath,JSON.stringify(prj),"Editar "+curProjectPath+" (desde el catálogo)");
+      dirty=false;
+      btn.textContent="☁ Guardar";btn.disabled=false;
+      alert("Guardado. GitHub Pages tarda ~1 minuto en publicarlo.");
+    }catch(err){
+      btn.textContent="☁ Guardar";btn.disabled=false;
+      alert("No se pudo guardar:\n"+(err.message||err));
+    }
+  };
+
+  window.addEventListener("beforeunload",function(e){
+    if(dirty){e.preventDefault();e.returnValue="";}
+  });
+
 })();
 </script>
 
@@ -616,6 +745,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     const projPath=d.proyecto;
     if(!projPath){$("#viewerEmpty").classList.remove("hidden");$("#viewerEmpty").textContent="Esta lámina no tiene archivo asignado.";return;}
     try{
+      curProjectPath=projPath;
       const resp=await fetch(projPath,{cache:"no-cache"});
       if(!resp.ok)throw new Error("HTTP "+resp.status);
       curProject=await resp.json();
@@ -697,10 +827,38 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // ---- Parts table ----
   function renderTable(){
     var tb=$("#ptbody");tb.innerHTML="";
+    // add/remove delete column header
+    var thead=document.querySelector(".ptable thead tr");
+    if(thead){
+      var delTh=thead.querySelector(".delTh");
+      if(editMode&&!delTh){var th=document.createElement("th");th.className="delTh";th.style.width="24px";th.textContent="";thead.appendChild(th);}
+      else if(!editMode&&delTh){delTh.remove();}
+    }
     $("#pcount").textContent=vMarkers.length+" piezas";
     vMarkers.forEach(function(m){
       var tr=document.createElement("tr");tr.setAttribute("data-id",m.id);
-      tr.innerHTML='<td class="pos">'+esc(m.id)+'</td>'
+      var PFK=[["id","pos"],["cantPos",""],["um",""],["indUso",""],["parte","code"],["parteSuc","code"],["sap1","sap"],["sap2","sap"],["denomFab",""],["denomCom",""],["freqMtto",""],["cantMtto",""],["sapEquipo","code"],["componente",""]];
+      if(editMode){
+        tr.innerHTML="";
+        PFK.forEach(function(pair){
+          var key=pair[0],cls=pair[1];
+          var td=document.createElement("td");
+          var inp=document.createElement("input");
+          inp.type="text";inp.value=m[key]||"";
+          inp.className=cls;
+          inp.style.cssText="width:100%;border:1px solid transparent;background:transparent;font-size:9px;font-family:inherit;padding:0 2px;color:inherit";
+          inp.onfocus=function(){inp.style.borderColor="var(--accent)";inp.style.background="#fff";selectPart(m.id);};
+          inp.onblur=function(){inp.style.borderColor="transparent";inp.style.background="transparent";};
+          inp.oninput=function(){m[key]=inp.value;dirty=true;if(key==="id"||key==="pos"){m.id=inp.value;renderOverlay();}};
+          td.appendChild(inp);tr.appendChild(td);
+        });
+        var tdDel=document.createElement("td");
+        tdDel.innerHTML='<button style="border:none;background:transparent;color:#dc3545;cursor:pointer;font-size:11px">✕</button>';
+        tdDel.querySelector("button").onclick=function(ev){ev.stopPropagation();
+          vMarkers=vMarkers.filter(function(x){return x!==m;});dirty=true;renderTable();renderOverlay();};
+        tr.appendChild(tdDel);
+      }else{
+        tr.innerHTML='<td class="pos">'+esc(m.id)+'</td>'
         +'<td>'+esc(m.cantPos||'')+'</td>'
         +'<td>'+esc(m.um||'')+'</td>'
         +'<td>'+esc(m.indUso||'')+'</td>'
@@ -714,6 +872,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         +'<td>'+esc(m.cantMtto||'')+'</td>'
         +'<td class="code">'+esc(m.sapEquipo||'')+'</td>'
         +'<td>'+esc(m.componente||'')+'</td>';
+      }
       tr.onclick=function(){selectPart(m.id);};
       tb.appendChild(tr);
     });
@@ -889,6 +1048,135 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(s.term===inp.value.trim()&&s.hits.length){nextHit(prefix,1);}
       else{searchInPdf(prefix,inp.value.trim());}
     };
+  });
+
+  // ================= EDICIÓN EN EL CATÁLOGO =================
+  const GH={
+    cfg:{owner:"",repo:"",branch:"main",token:""},
+    load(){try{const s=JSON.parse(localStorage.getItem("acl:gh:cfg")||"{}");Object.assign(this.cfg,s);}catch(e){}
+      if(!this.cfg.owner||!this.cfg.repo){const m=location.hostname.match(/^([^.]+)\.github\.io$/);
+        if(m){this.cfg.owner=this.cfg.owner||m[1];
+          const seg=location.pathname.split("/").filter(Boolean);
+          if(seg.length&&!this.cfg.repo)this.cfg.repo=seg[0];}}
+      return this.cfg;},
+    save(){try{localStorage.setItem("acl:gh:cfg",JSON.stringify(this.cfg));}catch(e){}},
+    ready(){return !!(this.cfg.owner&&this.cfg.repo&&this.cfg.token);},
+    async req(path,opts){
+      const r=await fetch("https://api.github.com"+path,Object.assign({headers:{
+        "Authorization":"Bearer "+this.cfg.token,"Accept":"application/vnd.github+json"}},opts||{}));
+      if(!r.ok){const t=await r.text().catch(()=>"" );const e=new Error("GitHub "+r.status+": "+t.slice(0,200));e.status=r.status;throw e;}
+      return r.json();},
+    repoPath(p){return "/repos/"+this.cfg.owner+"/"+this.cfg.repo+"/contents/"+p.split("/").map(encodeURIComponent).join("/");},
+    async getSha(p){try{const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch));return j.sha||null;}catch(e){if(e.status===404)return null;throw e;}},
+    async putFile(p,str,msg){
+      const sha=await this.getSha(p);
+      const bytes=new TextEncoder().encode(str);let bin="";
+      const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+      const body={message:msg||("Actualizar "+p),content:btoa(bin),branch:this.cfg.branch};
+      if(sha)body.sha=sha;
+      return this.req(this.repoPath(p),{method:"PUT",body:JSON.stringify(body)});}
+  };
+  GH.load();
+
+  function ghModal(){
+    const back=document.createElement("div");
+    back.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px";
+    back.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;max-width:440px;width:100%;padding:22px">'
+      +'<h3 style="margin:0 0 12px;font-family:\'Space Grotesk\',sans-serif;font-size:16px;color:var(--accent)">Conectar con GitHub</h3>'
+      +'<div style="margin-bottom:10px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Usuario</label>'
+      +'<input id="ghO" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit"/></div>'
+      +'<div style="margin-bottom:10px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Repositorio</label>'
+      +'<input id="ghR" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit"/></div>'
+      +'<div style="margin-bottom:14px"><label style="display:block;font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:700;margin-bottom:4px">Token</label>'
+      +'<input id="ghT" type="password" placeholder="github_pat_..." style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:monospace"/></div>'
+      +'<div style="display:flex;gap:8px"><button class="abtn" id="ghSave" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent)">Guardar</button>'
+      +'<button class="abtn" id="ghCancel">Cancelar</button></div></div>';
+    document.body.appendChild(back);
+    back.querySelector("#ghO").value=GH.cfg.owner||"";
+    back.querySelector("#ghR").value=GH.cfg.repo||"";
+    back.querySelector("#ghT").value=GH.cfg.token||"";
+    back.querySelector("#ghCancel").onclick=()=>back.remove();
+    back.addEventListener("click",e=>{if(e.target===back)back.remove();});
+    back.querySelector("#ghSave").onclick=()=>{
+      GH.cfg.owner=back.querySelector("#ghO").value.trim();
+      GH.cfg.repo=back.querySelector("#ghR").value.trim();
+      GH.cfg.token=back.querySelector("#ghT").value.trim();
+      GH.save();back.remove();
+      alert(GH.ready()?"GitHub conectado.":"Faltan datos.");
+    };
+  }
+
+  let editMode=false,curProjectPath=null,dirty=false;
+
+  function showEditButtons(on){
+    const ids=["vEdit","vGhCfg"];
+    ids.forEach(function(id){const el=$("#"+id);if(el)el.style.display=on?"":"none";});
+  }
+  // Show edit controls when admin unlocked
+  const _origShowAdmin=showAdmin;
+  showAdmin=function(on){_origShowAdmin(on);showEditButtons(on);};
+  if(isAdmin())showEditButtons(true);
+
+  $("#vGhCfg").onclick=ghModal;
+
+  $("#vEdit").onclick=function(){
+    if(!curProject){alert("Primero abre una lámina del árbol.");return;}
+    editMode=!editMode;
+    $("#vEdit").textContent=editMode?"✕ Salir edición":"✎ Editar";
+    $("#vEdit").style.background=editMode?"#ffc107":"";
+    $("#vSaveGH").style.display=editMode?"":"none";
+    $("#vAddRow").style.display=editMode?"":"none";
+    renderTable();renderOverlay();
+    if(editMode&&!GH.ready())setTimeout(function(){if(confirm("Para guardar cambios necesitas conectar GitHub. ¿Configurarlo ahora?"))ghModal();},200);
+  };
+
+  $("#vAddRow").onclick=function(){
+    if(!editMode)return;
+    var maxId=0;vMarkers.forEach(function(m){var n=parseInt(m.id,10);if(!isNaN(n)&&n>maxId)maxId=n;});
+    var o={id:String(maxId+1),x:-1,y:-1,noBalloon:true};
+    ["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"].forEach(function(k){o[k]="";});
+    o.pos=String(maxId+1);
+    vMarkers.push(o);dirty=true;renderTable();
+  };
+
+  // Click on image to place/move a balloon in edit mode
+  viewarea.addEventListener("click",function(e){
+    if(!editMode||!vSel)return;
+    if(e.target.closest(".balloon"))return;
+    var r=vpan.getBoundingClientRect();
+    var x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+    if(x<0||x>1||y<0||y>1)return;
+    var m=vMarkers.find(function(mm){return mm.id===vSel;});
+    if(!m)return;
+    m.x=x;m.y=y;m.noBalloon=false;dirty=true;
+    renderOverlay();
+  });
+
+  $("#vSaveGH").onclick=async function(){
+    if(!curProjectPath){alert("No hay archivo de proyecto asociado.");return;}
+    if(!GH.ready()){ghModal();return;}
+    var btn=$("#vSaveGH");btn.disabled=true;btn.textContent="Guardando…";
+    try{
+      var PF=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+      var prj=Object.assign({},curProject);
+      prj.markers=vMarkers.map(function(m){
+        var o={id:m.id,x:+(m.x||0).toFixed(4),y:+(m.y||0).toFixed(4)};
+        if(m.noBalloon)o.noBalloon=true;
+        PF.forEach(function(k){o[k]=m[k]||"";});
+        return o;
+      });
+      await GH.putFile(curProjectPath,JSON.stringify(prj),"Editar "+curProjectPath+" (desde el catálogo)");
+      dirty=false;
+      btn.textContent="☁ Guardar";btn.disabled=false;
+      alert("Guardado. GitHub Pages tarda ~1 minuto en publicarlo.");
+    }catch(err){
+      btn.textContent="☁ Guardar";btn.disabled=false;
+      alert("No se pudo guardar:\n"+(err.message||err));
+    }
+  };
+
+  window.addEventListener("beforeunload",function(e){
+    if(dirty){e.preventDefault();e.returnValue="";}
   });
 
 })();
