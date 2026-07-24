@@ -959,7 +959,7 @@
         const pos=Array.from(p.mesh.geometry.attributes.position.array).map(r4);
         const idxAttr=p.mesh.geometry.index;
         const idx=idxAttr?Array.from(idxAttr.array):null;
-        return {id:p.id,hex:p.hex,name:p.name,text:p.text,parte:p.parte,sap:p.sap,pos,idx};
+        var o={id:p.id,hex:p.hex,name:p.name,pos:pos,idx:idx};PART_FIELDS.forEach(function(f){if(f.key!=="pos")o[f.key]=p[f.key]||"";});o.posNum=p.pos||"";return o;
       })};
     return {json:JSON.stringify(prj),file:(currentName.replace(/\.(stp|step|stl|json)$/i,"")||"proyecto")+".json"};
   }
@@ -1779,7 +1779,7 @@
   function build2DFromProject(prj){
     setMode("2d");
     currentName=prj.name||"despiece.pdf";
-    markers=(prj.markers||[]).map(m=>({id:String(m.id),x:+m.x,y:+m.y,text:m.text||"",parte:m.parte||"",sap:m.sap||""}));
+    markers=(prj.markers||[]).map(function(m){var o={id:String(m.id),x:+m.x,y:+m.y};if(m.noBalloon)o.noBalloon=true;PART_FIELDS.forEach(function(f){o[f.key]=m[f.key]||"";});return o;});
     img2={w:prj.imgW||1000,h:prj.imgH||1000,src:prj.image||""};
     sel2=null;pdfDoc=null;
     pg2d.onload=()=>{fit2D();render2DOverlay();};
