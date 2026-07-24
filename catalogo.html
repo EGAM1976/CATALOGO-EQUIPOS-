@@ -301,7 +301,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   const ADMIN_HASH="64e48f3bf07307f751c02213b95e0b5e1e8351597dfbe12bce5cbf115591ce3f";
   const ADMIN_KEY="acl:admin";
   async function sha256a(s){const b=new TextEncoder().encode(s);const h=await crypto.subtle.digest("SHA-256",b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,"0")).join("");}
-  function isAdmin(){try{const s=JSON.parse(localStorage.getItem(ADMIN_KEY)||"{}");return s.h===ADMIN_HASH&&Date.now()<s.exp;}catch(e){return false;}}
+  function isAdmin(){try{const s=JSON.parse(sessionStorage.getItem(ADMIN_KEY)||"{}");return s.h===ADMIN_HASH;}catch(e){return false;}}
   function showAdmin(on){
     $("#adminBtns").style.display=on?"flex":"none";
     $("#unlockAdmin").style.display=on?"none":"";
@@ -315,13 +315,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     // Show/hide toolbar edit buttons
     if(typeof showEditButtons==="function")showEditButtons(on);
   }
+  try{localStorage.removeItem(ADMIN_KEY);}catch(e){}
   if(isAdmin())showAdmin(true);
   $("#unlockAdmin").onclick=async function(){
     const p=prompt("Contraseña de administrador:");if(p===null)return;
-    if(await sha256a(p)===ADMIN_HASH){try{localStorage.setItem(ADMIN_KEY,JSON.stringify({h:ADMIN_HASH,exp:Date.now()+7*86400000}));}catch(e){}showAdmin(true);}
+    if(await sha256a(p)===ADMIN_HASH){try{sessionStorage.setItem(ADMIN_KEY,JSON.stringify({h:ADMIN_HASH}));}catch(e){}showAdmin(true);}
     else alert("Contraseña incorrecta.");
   };
-  $("#lockAdmin").onclick=function(){try{localStorage.removeItem(ADMIN_KEY);}catch(e){}showAdmin(false);};
+  $("#lockAdmin").onclick=function(){try{sessionStorage.removeItem(ADMIN_KEY);}catch(e){}showAdmin(false);};
 
   // ---- Load catalog ----
   fetch(CAT_URL,{cache:"no-cache"}).then(r=>r.json()).then(d=>{DATA=d;buildTree();}).catch(()=>{$("#treeContent").innerHTML='<div style="padding:14px;color:var(--faint)">No se pudo cargar catalogo.json</div>';});
