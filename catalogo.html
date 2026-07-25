@@ -198,7 +198,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       <div class="tabContent active" id="tabPiezas">
         <div class="viewer" id="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar" id="viewToolbar">
-            <button class="abtn" id="toggleTree" style="font-size:9px;padding:2px 6px" title="Ocultar/mostrar árbol">☰</button><span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
+            <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
             <button class="abtn" id="vZoomOut">−</button>
             <button class="abtn" id="vZoomIn">+</button>
             <button class="abtn" id="vFit">Encuadrar</button>
@@ -247,9 +247,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       <div class="tabContent" id="tabElectrico">
         <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="elecTitle">Esquemas eléctricos</span>
+            <button class="abtn" id="eAddPdf" style="display:none;background:#CC0033;color:#fff;border-color:#CC0033">＋ Subir PDF</button>
             <button class="abtn" id="eZoomOut">−</button><button class="abtn" id="eZoomIn">+</button><button class="abtn" id="eFit">Encuadrar</button>
             <button class="abtn" id="ePrev">‹</button><span id="ePageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="eNext">›</button><div class="pdfSearch"><input type="search" id="eSearch" placeholder="Buscar texto…"/><button class="abtn" id="eSearchBtn">🔍</button><span id="eSearchInfo" class="mono"></span></div>
           </div>
+          <input type="file" id="eFile" accept=".pdf,image/*" style="display:none"/>
           <div class="viewarea" id="elecViewarea">
             <div class="pan" id="elecPan"><img id="elecImg" alt=""/><div class="hitLayer" id="elecHits"></div></div>
           </div>
@@ -261,9 +263,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       <div class="tabContent" id="tabDocs">
         <div class="viewer" style="flex:1;min-height:0">
           <div class="viewer-toolbar"><span class="mono" style="font-size:11px;color:var(--muted);flex:1" id="docTitle">Documentación técnica</span>
+            <button class="abtn" id="dAddPdf" style="display:none;background:#CC0033;color:#fff;border-color:#CC0033">＋ Subir PDF</button>
             <button class="abtn" id="dZoomOut">−</button><button class="abtn" id="dZoomIn">+</button><button class="abtn" id="dFit">Encuadrar</button>
             <button class="abtn" id="dPrev">‹</button><span id="dPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span><button class="abtn" id="dNext">›</button><div class="pdfSearch"><input type="search" id="dSearch" placeholder="Buscar texto…"/><button class="abtn" id="dSearchBtn">🔍</button><span id="dSearchInfo" class="mono"></span></div>
           </div>
+          <input type="file" id="dFile" accept=".pdf,image/*" style="display:none"/>
           <div class="viewarea" id="docViewarea">
             <div class="pan" id="docPan"><img id="docImg" alt=""/><div class="hitLayer" id="docHits"></div></div>
           </div>
@@ -454,6 +458,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(!loaded)build();
       const open=childBox.classList.toggle("open");
       arrow.classList.toggle("open",open);
+      // Track machine context for PDF uploads
+      if(mq&&kind&&window.__setDocCtx)window.__setDocCtx(kind,mq);
     };
     // Register so we can refresh + auto-open this category when a sheet is added
     if(mq&&kind){
@@ -586,6 +592,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       document.querySelectorAll(".tlabel.sel").forEach(function(el){el.classList.remove("sel");});
       label.classList.add("sel");
       curCtx=curCtx||{};curCtx.mq=mq;
+      if(window.__setDocCtx&&(tipo==="electrico"||tipo==="doc"))window.__setDocCtx(tipo==="electrico"?"electrico":"doc",mq);
       if(tipo==="piezas"){
         document.querySelectorAll(".tab")[0].click();
         loadDespiece(d,mq);
@@ -1169,7 +1176,6 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       const bytes=new TextEncoder().encode(str);let bin="";
       const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
       const content=btoa(bin);
-      // Try up to 5 times, refetching the latest SHA each time (handles 409 conflicts)
       let lastErr=null;
       for(let attempt=0;attempt<5;attempt++){
         try{
@@ -1177,13 +1183,20 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           const body={message:msg||("Actualizar "+p),content:content,branch:this.cfg.branch};
           if(sha)body.sha=sha;
           return await this.req(this.repoPath(p),{method:"PUT",body:JSON.stringify(body)});
-        }catch(e){
-          lastErr=e;
-          if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,600));continue;} // conflict → retry with fresh SHA
-          throw e;
-        }
+        }catch(e){lastErr=e;if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,600));continue;}throw e;}
       }
-      throw lastErr;}
+      throw lastErr;},
+    async putFileRaw(p,b64,msg){
+      let lastErr=null;
+      for(let attempt=0;attempt<5;attempt++){
+        try{
+          const sha=await this.getSha(p);
+          const body={message:msg||("Subir "+p),content:b64,branch:this.cfg.branch};
+          if(sha)body.sha=sha;
+          return await this.req(this.repoPath(p),{method:"PUT",body:JSON.stringify(body)});
+        }catch(e){lastErr=e;if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,600));continue;}throw e;}
+      }
+      throw lastErr;},
   };
   GH.load();
 
@@ -1227,8 +1240,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function showEditButtons(on){
     const ids=["vEdit","vGhCfg"];
     ids.forEach(function(id){const el=$("#"+id);if(el)el.style.display=on?"":"none";});
-    // also toggle the extra sheet-management buttons
     ["vNewSheet","vRename","vSetImg"].forEach(function(id){var e=$("#"+id);if(e)e.style.display=on?"":"none";});
+    if(typeof showDocUploadButtons==="function")showDocUploadButtons(on);
   }
   if(isAdmin())showEditButtons(true);
 
@@ -1236,6 +1249,70 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // Wire CSV buttons in the top bar
   if($("#vExportAllTop"))$("#vExportAllTop").onclick=exportAllCsv;
   if($("#vCsvTop"))$("#vCsvTop").onclick=exportSheetCsv;
+
+  // ---- Subir PDF a Esquema eléctrico / Documentación ----
+  var curElecMq=null,curDocMq=null; // machine context for each tab
+  function showDocUploadButtons(on){
+    var e=$("#eAddPdf"),dd=$("#dAddPdf");
+    if(e)e.style.display=on?"":"none";
+    if(dd)dd.style.display=on?"":"none";
+  }
+  // Called from makeCategoryNode/makeItemNode when a machine's elec/doc category is opened
+  window.__setDocCtx=function(kind,mq){if(kind==="electrico")curElecMq=mq;else if(kind==="doc")curDocMq=mq;};
+
+  function wireDocUpload(kind){
+    var btnId=kind==="elec"?"eAddPdf":"dAddPdf";
+    var fileId=kind==="elec"?"eFile":"dFile";
+    var folder="documentos";
+    var arrKey=kind==="elec"?"electricos":"documentos";
+    var btn=$("#"+btnId),file=$("#"+fileId);
+    if(btn)btn.onclick=function(){
+      if(!GH.ready()){alert("Conecta GitHub primero (⚙ en Catálogo de piezas).");return;}
+      var mq=kind==="elec"?curElecMq:curDocMq;
+      if(!mq){alert("Primero selecciona una máquina en el árbol (abre "+(kind==="elec"?"Esquema eléctrico":"Documentación")+" de una máquina).");return;}
+      file.click();
+    };
+    if(file)file.addEventListener("change",async function(){
+      var f=file.files&&file.files[0];if(!f)return;file.value="";
+      var mq=kind==="elec"?curElecMq:curDocMq;
+      if(!mq)return;
+      var nombre=prompt("Nombre del "+(kind==="elec"?"esquema eléctrico":"documento")+":",f.name.replace(/\.[^.]+$/,""));
+      if(nombre===null)return;nombre=nombre.trim()||f.name;
+      var safe=f.name.replace(/[^A-Za-z0-9._-]/g,"_");
+      var path=folder+"/"+safe;
+      try{
+        await ghSerial(async function(){
+          // Upload the file (binary)
+          var buf=await f.arrayBuffer();var bytes=new Uint8Array(buf),bin="",CH=0x8000;
+          for(var i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+          var b64=btoa(bin);
+          await GH.putFileRaw(path,b64,"Subir "+path);
+          // Update catalog.json (fresh)
+          var gf=await GH.getFileText("catalogo.json");var cat=JSON.parse(gf.text);
+          // find the machine by name-path
+          var target=null;
+          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
+            if(m2.nombre===mq.nombre)target=m2;
+          });});});});
+          if(target){
+            target[arrKey]=target[arrKey]||[];
+            target[arrKey].push(kind==="elec"?{nombre:nombre,archivo:path}:{nombre:nombre,archivo:path,categoria:"manual"});
+            await GH.putFile("catalogo.json",JSON.stringify(cat,null,1),"Enlazar "+nombre);
+            DATA=cat;
+            // add to in-memory machine + refresh its category node
+            mq[arrKey]=mq[arrKey]||[];mq[arrKey].push(kind==="elec"?{nombre:nombre,archivo:path}:{nombre:nombre,archivo:path,categoria:"manual"});
+            var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===(kind==="elec"?"electrico":"doc");});
+            if(reg&&reg.addItem)reg.addItem(kind==="elec"?{nombre:nombre,archivo:path}:{nombre:nombre,archivo:path,categoria:"manual"});
+          }
+        });
+        alert("Subido y enlazado: "+nombre+"\nEspera ~1 min y recarga si no aparece.");
+      }catch(e){alert("No se pudo subir:\n"+(e.message||e));}
+    });
+  }
+  wireDocUpload("elec");
+  wireDocUpload("doc");
+  // Re-apply admin visibility now that all edit buttons exist
+  if(isAdmin())showEditButtons(true);
 
   $("#vEdit").onclick=function(){
     if(!curProject){alert("Primero abre una lámina del árbol.");return;}
