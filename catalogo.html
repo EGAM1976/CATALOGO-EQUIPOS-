@@ -189,33 +189,31 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
 
     <!-- Center: tabs + viewer + bottom table -->
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-      <!-- Tabs -->
-      <div class="tabs" id="tabsBar">
+      <!-- Tabs + viewer controls in one row -->
+      <div class="tabs" id="tabsBar" style="align-items:center">
         <button id="expandTree" title="Mostrar estructura de planta" style="display:none;border:none;background:transparent;color:var(--accent);cursor:pointer;font-size:15px;padding:0 10px">☰</button>
         <button class="tab active" data-tab="piezas">📋 Catálogo de piezas</button>
         <button class="tab" data-tab="electrico">⚡ Esquema eléctrico</button>
         <button class="tab" data-tab="docs">📖 Documentación</button>
+        <span id="viewTitle" class="mono" style="font-size:10px;color:var(--muted);flex:1;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+        <button class="abtn" id="vNewSheet" style="display:none;background:#CC0033;color:#fff;border-color:#CC0033">＋ Nueva hoja</button>
+        <button class="abtn" id="vRename" style="display:none">✎ Nombre</button>
+        <button class="abtn" id="vSetImg" style="display:none">🖼 Imagen</button>
+        <button class="abtn" id="vEdit" style="display:none">✎ Editar</button>
+        <button class="abtn" id="vAddRow" style="display:none">+ Fila</button>
+        <button class="abtn" id="vSaveGH" style="display:none;background:#28a745;color:#fff;border-color:#1f8c3a">☁ Guardar</button>
+        <button class="abtn" id="vGhCfg" style="display:none">⚙</button>
+        <button class="abtn" id="vZoomOut">−</button>
+        <button class="abtn" id="vZoomIn">+</button>
+        <button class="abtn" id="vFit">Encuadrar</button>
+        <button class="abtn" id="vPrev">‹</button>
+        <span id="vPageLabel" class="mono" style="font-size:10px;color:var(--faint)"></span>
+        <button class="abtn" id="vNext" style="margin-right:8px">›</button>
       </div>
 
       <!-- Tab: Catálogo de piezas — image top, table bottom like Krones eCat -->
       <div class="tabContent active" id="tabPiezas">
         <div class="viewer" id="viewer" style="flex:1;min-height:0">
-          <div class="viewer-toolbar" id="viewToolbar">
-            <span id="viewTitle" class="mono" style="font-size:11px;color:var(--muted);flex:1"></span>
-            <button class="abtn" id="vNewSheet" style="display:none;background:#CC0033;color:#fff;border-color:#CC0033">＋ Nueva hoja</button>
-            <button class="abtn" id="vRename" style="display:none">✎ Nombre</button>
-            <button class="abtn" id="vSetImg" style="display:none">🖼 Imagen</button>
-            <button class="abtn" id="vEdit" style="display:none">✎ Editar</button>
-            <button class="abtn" id="vAddRow" style="display:none">+ Fila</button>
-            <button class="abtn" id="vSaveGH" style="display:none;background:#28a745;color:#fff;border-color:#1f8c3a">☁ Guardar</button>
-            <button class="abtn" id="vGhCfg" style="display:none">⚙</button>
-            <button class="abtn" id="vZoomOut">−</button>
-            <button class="abtn" id="vZoomIn">+</button>
-            <button class="abtn" id="vFit">Encuadrar</button>
-            <button class="abtn" id="vPrev">‹</button>
-            <span id="vPageLabel" class="mono" style="font-size:11px;color:var(--faint)"></span>
-            <button class="abtn" id="vNext">›</button>
-          </div>
           <div class="viewarea" id="viewarea">
             <div class="pan" id="vpan"><img id="vimg" alt=""/><svg class="ov" id="vov" xmlns="http://www.w3.org/2000/svg"></svg></div>
           </div>
@@ -959,6 +957,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var target=tab.getAttribute("data-tab");
       var map={piezas:"tabPiezas",electrico:"tabElectrico",docs:"tabDocs",busqueda:"tabBusqueda"};
       if(map[target])$("#"+map[target]).classList.add("active");
+      // Viewer controls (zoom/page/edit) only make sense on the piezas tab
+      var showViewCtrls=(target==="piezas");
+      ["vZoomOut","vZoomIn","vFit","vPrev","vNext","vPageLabel"].forEach(function(id){
+        var el=$("#"+id);if(el)el.style.display=showViewCtrls?"":"none";
+      });
+      // Admin edit buttons also only on piezas
+      if(isAdmin()){
+        ["vNewSheet","vRename","vSetImg","vEdit","vGhCfg"].forEach(function(id){
+          var el=$("#"+id);if(el)el.style.display=showViewCtrls?"":"none";
+        });
+      }
       // Sync the tree: open the matching category of the current machine
       if(!_syncingTab){
         var mq=(curCtx&&curCtx.mq)||curElecMq||curDocMq;
