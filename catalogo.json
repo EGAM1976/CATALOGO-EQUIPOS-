@@ -159,11 +159,6 @@
            "nombre": "FALSA BOTELLA 5",
            "tipo": "2D",
            "proyecto": "proyectos/falsa_botella_5.json"
-          },
-          {
-           "nombre": "FALSA BOTELL6",
-           "tipo": "2D",
-           "proyecto": "proyectos/falsa_botell6.json"
           }
          ]
         }
