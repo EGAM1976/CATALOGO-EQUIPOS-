@@ -524,25 +524,32 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         try{
           // Reload fresh catalog from GitHub to avoid conflicts
           try{var fresh=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();DATA=fresh;}catch(e){}
-          var arr=tipo==="piezas"?mq.despieces:tipo==="electrico"?mq.electricos:mq.documentos;
-          var i=arr.indexOf(d);if(i>=0)arr.splice(i,1);
-          else{
-            var key=d.proyecto||d.archivo;
-            (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
-              ["despieces","electricos","documentos"].forEach(function(cat){
-                (m2[cat]||[]).forEach(function(x,xi){if((x.proyecto||x.archivo)===key)m2[cat].splice(xi,1);});
-              });
-            });});});});
-          }
+          // Always remove from the FRESH DATA by matching the file path (proyecto/archivo)
+          var key=d.proyecto||d.archivo;
+          var removed=0;
+          (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
+            ["despieces","electricos","documentos"].forEach(function(cat){
+              if(!m2[cat])return;
+              for(var xi=m2[cat].length-1;xi>=0;xi--){
+                var x=m2[cat][xi];
+                if((x.proyecto||x.archivo)===key||(!key&&x.nombre===d.nombre)){m2[cat].splice(xi,1);removed++;}
+              }
+            });
+          });});});});
+          if(!removed){alert("No encontré la hoja en el catálogo actual. Puede que ya se haya borrado.");}
           await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
           // Permanent: also delete the actual file from the repo
           if(perma&&filePath){
             try{await GH.deleteFile(filePath,"Borrar archivo "+filePath+" (borrado permanente)");}
             catch(e){alert("La hoja se quitó del catálogo, pero no se pudo borrar el archivo:\n"+(e.message||e));}
           }
+          // Also drop from the in-memory tree object so it doesn't reappear on re-expand
+          var arr=tipo==="piezas"?mq.despieces:tipo==="electrico"?mq.electricos:mq.documentos;
+          if(arr){var ii=arr.indexOf(d);if(ii>=0)arr.splice(ii,1);}
           div.remove();
           var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===tipo;});
           if(reg)reg.open();
+          alert('Hoja "'+(d.nombre||"")+'" borrada'+(perma?" para siempre (archivo incluido)":" del catálogo")+".\nGitHub Pages tarda ~1 minuto en reflejarlo.");
         }catch(e){alert("No se pudo borrar: "+(e.message||e));}
       };
       label.appendChild(del);
