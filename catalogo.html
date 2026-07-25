@@ -747,9 +747,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   });
 
   // ---- Load despiece ----
-  async function loadDespiece(d,mq){
+  async function loadDespiece(d,mq,fullPath){
     selDespiece=d;curProject=null;vMarkers=[];vSel=null;pdfDoc=null;
-    $("#viewTitle").textContent=(mq.nombre||"")+" · "+(d.nombre||"");
+    $("#viewTitle").textContent=(fullPath||mq.nombre||"")+" · "+(d.nombre||"");
     $("#viewerEmpty").classList.add("hidden");
     const projPath=d.proyecto;
     if(!projPath){$("#viewerEmpty").classList.remove("hidden");$("#viewerEmpty").textContent="Esta lámina no tiene archivo asignado.";return;}
@@ -1073,7 +1073,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         +'</div>';
       div.onclick=function(){
         document.querySelectorAll(".tab")[0].click();
-        loadDespiece(it.desp||{nombre:it.nombre,proyecto:it.proyecto},it.mq||{nombre:""});
+        loadDespiece(it.desp||{nombre:it.nombre,proyecto:it.proyecto},it.mq||{nombre:""},it.path);
         setTimeout(function(){if(typeof selectPart==="function")selectPart(m.id||m.pos);},600);
       };
       results.appendChild(div);
@@ -1089,7 +1089,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       div.onclick=function(){
         if(item.tipo==="electrico"){document.querySelectorAll(".tab")[1].click();loadDocument(item,item.mq,"elec");}
         else if(item.tipo==="doc"){document.querySelectorAll(".tab")[2].click();loadDocument(item,item.mq,"doc");}
-        else{document.querySelectorAll(".tab")[0].click();loadDespiece(item.desp||item,item.mq||{nombre:""});}
+        else{document.querySelectorAll(".tab")[0].click();loadDespiece(item.desp||item,item.mq||{nombre:""},item.path);}
       };
       results.appendChild(div);
     });
