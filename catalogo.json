@@ -139,11 +139,6 @@
            "nombre": "ZZZZZZ",
            "tipo": "2D",
            "proyecto": "proyectos/zzzzzz.json"
-          },
-          {
-           "nombre": "Falsa Botella",
-           "tipo": "2D",
-           "proyecto": "proyectos/falsa_botella.json"
           }
          ]
         }
