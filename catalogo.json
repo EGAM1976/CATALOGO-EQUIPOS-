@@ -43,6 +43,11 @@
              "nombre": "ROTOPLAS",
              "tipo": "2D",
              "proyecto": "proyectos/rotoplas.json"
+            },
+            {
+             "nombre": "PUNTERAS",
+             "tipo": "2D",
+             "proyecto": "proyectos/punteras.json"
             }
            ],
            "electricos": [],
