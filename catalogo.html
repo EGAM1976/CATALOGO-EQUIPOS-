@@ -895,9 +895,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   }
 
   // ---- CSV export ----
+  function fmtFecha(iso){
+    if(!iso)return "";
+    try{var d=new Date(iso);if(isNaN(d))return "";
+      return d.toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"});
+    }catch(e){return "";}
+  }
   function exportSheetCsv(){
     if(!vMarkers.length){alert("No hay repuestos para exportar.");return;}
-    var csv="\ufeffPos,N_Parte,N_Parte_Suc,SAP,SAP_NAC,Denom_Fabricante,Denom_Comercial,Cant,UM,Ind_Uso,Frec_Mtto,Cant_Mtto,SAP_Equipo,Componente\n";
+    var fCrea=fmtFecha(curProject&&curProject.creado);
+    var fMod=fmtFecha(curProject&&curProject.modificado);
+    var csv="\ufeffPos,N_Parte,N_Parte_Suc,SAP,SAP_NAC,Denom_Fabricante,Denom_Comercial,Cant,UM,Ind_Uso,Frec_Mtto,Cant_Mtto,SAP_Equipo,Componente,Fecha_Creacion,Fecha_Modificacion\n";
     vMarkers.forEach(function(m){
       csv+=[
         csvCell(m.id||m.pos),
@@ -913,7 +921,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         csvCell(m.freqMtto),
         csvCell(m.cantMtto),
         csvCell(m.sapEquipo),
-        csvCell(m.componente)
+        csvCell(m.componente),
+        csvCell(fCrea),
+        csvCell(fMod)
       ].join(",")+"\n";
     });
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -1397,6 +1407,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         PF.forEach(function(k){o[k]=m[k]||"";});
         return o;
       });
+      if(!prj.creado)prj.creado=new Date().toISOString();
+      prj.modificado=new Date().toISOString();
+      curProject.creado=prj.creado;curProject.modificado=prj.modificado;
       await GH.putFile(curProjectPath,JSON.stringify(prj),"Editar "+curProjectPath+" (desde el catálogo)");
       dirty=false;
       btn.textContent="☁ Guardar";btn.disabled=false;
@@ -1484,7 +1497,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     }
     var slug=nombre.replace(/[^A-Za-z0-9._-]/g,"_").toLowerCase();
     var path="proyectos/"+slug+".json";
-    var prj={type:"2d",name:nombre,image:"",imgW:1200,imgH:800,markers:mk};
+    var ahora=new Date().toISOString();
+    var prj={type:"2d",name:nombre,image:"",imgW:1200,imgH:800,markers:mk,creado:ahora,modificado:ahora};
     try{
       var existed=await GH.getSha(path);
       if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
@@ -1639,6 +1653,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       }
       vImg={w:curProject.imgW,h:curProject.imgH,src:curProject.image};
       setImage();renderOverlay();
+      if(!curProject.creado)curProject.creado=new Date().toISOString();
+      curProject.modificado=new Date().toISOString();
       await GH.putFile(curProjectPath,JSON.stringify(curProject),"Insertar imagen en hoja");
       alert("Imagen insertada y guardada. Espera ~1 min y recarga.");
     }catch(err){alert("No se pudo insertar la imagen:\n"+(err.message||err));}
@@ -1672,6 +1688,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         var r=await fetch(j.path,{cache:"no-cache"});
         if(!r.ok)continue;
         var prj=await r.json();
+        var fCrea=fmtFecha(prj.creado);
+        var fMod=fmtFecha(prj.modificado);
         (prj.markers||prj.parts||[]).forEach(function(m){
           var row=[j.planta,j.zona,j.linea,j.maquina,j.sistema,j.hoja,m.id||""];
           PF.forEach(function(k){
@@ -1680,13 +1698,14 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
             if(k==="denomFab"||k==="denomCom")v=String(v).slice(0,40);
             row.push(v);
           });
+          row.push(fCrea);row.push(fMod);
           rows.push(row);
         });
       }catch(e){}
     }
     btn.textContent=oldTxt;btn.disabled=false;
     if(!rows.length){alert("No se encontraron datos para exportar.");return;}
-    var head=["Planta","Zona","Linea","Equipo","Sistema","Hoja","ID","Pos","N_Parte","N_Parte_Suc","SAP","SAP_NAC","Denom_Fabricante","Denom_Comercial","Cant","UM","Ind_Uso","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente"];
+    var head=["Planta","Zona","Linea","Equipo","Sistema","Hoja","ID","Pos","N_Parte","N_Parte_Suc","SAP","SAP_NAC","Denom_Fabricante","Denom_Comercial","Cant","UM","Ind_Uso","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente","Fecha_Creacion","Fecha_Modificacion"];
     var csv="\ufeff"+head.join(",")+"\n";
     rows.forEach(function(r){csv+=r.map(csvCell).join(",")+"\n";});
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
