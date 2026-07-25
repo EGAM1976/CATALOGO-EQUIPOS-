@@ -38,6 +38,11 @@
              "nombre": "Nueva hoja",
              "tipo": "2D",
              "proyecto": "proyectos/nueva_hoja.json"
+            },
+            {
+             "nombre": "ROTOPLAS",
+             "tipo": "2D",
+             "proyecto": "proyectos/rotoplas.json"
             }
            ],
            "electricos": [],
