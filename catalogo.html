@@ -522,8 +522,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           perma=true;
         }
         try{
-          // Reload fresh catalog from GitHub to avoid conflicts
-          try{var fresh=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();DATA=fresh;}catch(e){}
+          // Get the LATEST catalog.json directly from the GitHub API (not the cached Pages copy)
+          try{var gf=await GH.getFileText("catalogo.json");DATA=JSON.parse(gf.text);}catch(e){alert("No pude leer el catálogo de GitHub:\n"+(e.message||e));return;}
           // Always remove from the FRESH DATA by matching the file path (proyecto/archivo)
           var key=d.proyecto||d.archivo;
           var removed=0;
@@ -1115,19 +1115,26 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(!r.ok){const t=await r.text().catch(()=>"" );const e=new Error("GitHub "+r.status+": "+t.slice(0,200));e.status=r.status;throw e;}
       return r.json();},
     repoPath(p){return "/repos/"+this.cfg.owner+"/"+this.cfg.repo+"/contents/"+p.split("/").map(encodeURIComponent).join("/");},
-    async getSha(p){try{const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch));return j.sha||null;}catch(e){if(e.status===404)return null;throw e;}},
+    async getSha(p){try{const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch)+"&_="+Date.now());return j.sha||null;}catch(e){if(e.status===404)return null;throw e;}},
     async deleteFile(p,msg){
       const sha=await this.getSha(p);
       if(!sha)return; // already gone
       return this.req(this.repoPath(p),{method:"DELETE",body:JSON.stringify({message:msg||("Borrar "+p),sha:sha,branch:this.cfg.branch})});
     },
+    async getFileText(p){
+      // Read the latest file content directly from the API (never cached, always current SHA)
+      const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch)+"&_="+Date.now());
+      let txt="";
+      try{txt=decodeURIComponent(escape(atob((j.content||"").replace(/\n/g,""))));}catch(e){txt=atob((j.content||"").replace(/\n/g,""));}
+      return {text:txt,sha:j.sha};
+    },
     async putFile(p,str,msg){
       const bytes=new TextEncoder().encode(str);let bin="";
       const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
       const content=btoa(bin);
-      // Try up to 3 times, refetching the latest SHA each time (handles 409 conflicts)
+      // Try up to 5 times, refetching the latest SHA each time (handles 409 conflicts)
       let lastErr=null;
-      for(let attempt=0;attempt<3;attempt++){
+      for(let attempt=0;attempt<5;attempt++){
         try{
           const sha=await this.getSha(p);
           const body={message:msg||("Actualizar "+p),content:content,branch:this.cfg.branch};
@@ -1135,7 +1142,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           return await this.req(this.repoPath(p),{method:"PUT",body:JSON.stringify(body)});
         }catch(e){
           lastErr=e;
-          if(e.status===409){await new Promise(r=>setTimeout(r,400));continue;} // conflict → retry with fresh SHA
+          if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,600));continue;} // conflict → retry with fresh SHA
           throw e;
         }
       }
@@ -1322,7 +1329,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
       await GH.putFile(path,JSON.stringify(prj),"Crear hoja "+nombre);
       // Link to a machine — use current tree context if available
-      var cat=await (await fetch("catalogo.json",{cache:"no-cache"})).json();
+      var cat;try{var _gf=await GH.getFileText("catalogo.json");cat=JSON.parse(_gf.text);}catch(e){cat=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();}
       var target=null;
       if(curCtx&&curCtx.mq){
         // locate the same machine inside the freshly-fetched catalog
@@ -1428,7 +1435,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     try{
       curProject.name=nuevo;
       await GH.putFile(curProjectPath,JSON.stringify(curProject),"Renombrar hoja");
-      var cat=await (await fetch("catalogo.json",{cache:"no-cache"})).json();
+      var cat;try{var _gf=await GH.getFileText("catalogo.json");cat=JSON.parse(_gf.text);}catch(e){cat=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();}
       var found=false;
       (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){
         (mq.despieces||[]).forEach(function(d){if(d.proyecto===curProjectPath){d.nombre=nuevo;found=true;}});
