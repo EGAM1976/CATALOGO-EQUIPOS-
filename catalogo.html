@@ -180,7 +180,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   <div class="main">
     <!-- Left: tree -->
     <div class="tree" id="tree">
-      <div class="tree-head">Estructura de planta</div>
+      <div class="tree-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Estructura de planta</span>
+        <button id="collapseTree" title="Ocultar panel" style="border:none;background:transparent;color:var(--accent);cursor:pointer;font-size:14px;padding:0 2px;line-height:1">⏴</button>
+      </div>
       <div id="treeContent"></div>
     </div>
 
@@ -188,6 +191,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
       <!-- Tabs -->
       <div class="tabs" id="tabsBar">
+        <button id="expandTree" title="Mostrar estructura de planta" style="display:none;border:none;background:transparent;color:var(--accent);cursor:pointer;font-size:15px;padding:0 10px">☰</button>
         <button class="tab active" data-tab="piezas">📋 Catálogo de piezas</button>
         <button class="tab" data-tab="electrico">⚡ Esquema eléctrico</button>
         <button class="tab" data-tab="docs">📖 Documentación</button>
@@ -1263,6 +1267,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   if(isAdmin())showEditButtons(true);
 
   $("#vGhCfg").onclick=ghModal;
+  // ---- Colapsar / expandir panel de estructura de planta ----
+  if($("#collapseTree"))$("#collapseTree").onclick=function(){
+    $("#tree").style.display="none";
+    if($("#expandTree"))$("#expandTree").style.display="";
+    if(typeof fitView==="function")fitView();
+  };
+  if($("#expandTree"))$("#expandTree").onclick=function(){
+    $("#tree").style.display="";
+    $("#expandTree").style.display="none";
+    if(typeof fitView==="function")fitView();
+  };
   // Wire CSV buttons in the top bar
   if($("#vExportAllTop"))$("#vExportAllTop").onclick=exportAllCsv;
   if($("#vCsvTop"))$("#vCsvTop").onclick=exportSheetCsv;
