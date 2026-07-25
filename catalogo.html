@@ -195,7 +195,6 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         <button class="tab active" data-tab="piezas">📋 Catálogo de piezas</button>
         <button class="tab" data-tab="electrico">⚡ Esquema eléctrico</button>
         <button class="tab" data-tab="docs">📖 Documentación</button>
-        <button class="tab" data-tab="busqueda">🔍 Búsqueda</button>
       </div>
 
       <!-- Tab: Catálogo de piezas — image top, table bottom like Krones eCat -->
@@ -224,11 +223,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         </div>
         <div class="resizer" id="resizer"></div>
         <div class="partsbar" id="partsbar">
-          <div class="partsbar-head">
-            <h3 class="disp" style="color:var(--accent)">Repuestos</h3>
-            <span class="pcount" id="pcount"></span>
-            <span class="spacer"></span>
-          </div>
+          <span id="pcount" style="display:none"></span>
           <div class="ptable-wrap">
             <table class="ptable">
               <thead><tr>
@@ -943,10 +938,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   // ---- Global search ----
   $("#globalSearch").addEventListener("input",function(){
     var q=this.value.toLowerCase().trim();
-    // If typing in the top bar, jump to the Búsqueda tab and run the deep search
+    // If typing in the top bar, show the search results panel and run the deep search
     if(q.length>=2){
-      var busqTab=document.querySelector('.tab[data-tab="busqueda"]');
-      if(busqTab)busqTab.click();
+      document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active");});
+      document.querySelectorAll(".tabContent").forEach(function(c){c.classList.remove("active");});
+      $("#tabBusqueda").classList.add("active");
       var sa=$("#searchAll");
       if(sa){sa.value=this.value;sa.dispatchEvent(new Event("input"));}
     }else{
