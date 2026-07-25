@@ -33,6 +33,11 @@
              "nombre": "Pinzas",
              "tipo": "2D",
              "proyecto": "proyectos/pinzas.json"
+            },
+            {
+             "nombre": "Nueva hoja",
+             "tipo": "2D",
+             "proyecto": "proyectos/nueva_hoja.json"
             }
            ],
            "electricos": [],
