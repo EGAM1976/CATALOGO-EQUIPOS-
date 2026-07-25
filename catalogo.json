@@ -48,6 +48,11 @@
              "nombre": "PUNTERAS",
              "tipo": "2D",
              "proyecto": "proyectos/punteras.json"
+            },
+            {
+             "nombre": "CADENAS",
+             "tipo": "2D",
+             "proyecto": "proyectos/cadenas.json"
             }
            ],
            "electricos": [],
