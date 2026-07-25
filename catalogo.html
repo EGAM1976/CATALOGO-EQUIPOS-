@@ -521,35 +521,35 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           if(!confirm('⚠️ BORRADO PERMANENTE\n\nSe eliminará la hoja del catálogo Y el archivo "'+filePath+'" del repositorio.\n\nEsta acción NO se puede deshacer. ¿Continuar?'))return;
           perma=true;
         }
+        // Run the whole delete through the serial queue so consecutive deletes wait their turn
         try{
-          // Get the LATEST catalog.json directly from the GitHub API (not the cached Pages copy)
-          try{var gf=await GH.getFileText("catalogo.json");DATA=JSON.parse(gf.text);}catch(e){alert("No pude leer el catálogo de GitHub:\n"+(e.message||e));return;}
-          // Always remove from the FRESH DATA by matching the file path (proyecto/archivo)
-          var key=d.proyecto||d.archivo;
-          var removed=0;
-          (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
-            ["despieces","electricos","documentos"].forEach(function(cat){
-              if(!m2[cat])return;
-              for(var xi=m2[cat].length-1;xi>=0;xi--){
-                var x=m2[cat][xi];
-                if((x.proyecto||x.archivo)===key||(!key&&x.nombre===d.nombre)){m2[cat].splice(xi,1);removed++;}
-              }
-            });
-          });});});});
-          if(!removed){alert("No encontré la hoja en el catálogo actual. Puede que ya se haya borrado.");}
-          await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
-          // Permanent: also delete the actual file from the repo
-          if(perma&&filePath){
-            try{await GH.deleteFile(filePath,"Borrar archivo "+filePath+" (borrado permanente)");}
-            catch(e){alert("La hoja se quitó del catálogo, pero no se pudo borrar el archivo:\n"+(e.message||e));}
-          }
-          // Also drop from the in-memory tree object so it doesn't reappear on re-expand
+          await ghSerial(async function(){
+            // Get the LATEST catalog.json directly from the GitHub API (not the cached Pages copy)
+            var gf=await GH.getFileText("catalogo.json");
+            DATA=JSON.parse(gf.text);
+            var key=d.proyecto||d.archivo;
+            var removed=0;
+            (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
+              ["despieces","electricos","documentos"].forEach(function(cat){
+                if(!m2[cat])return;
+                for(var xi=m2[cat].length-1;xi>=0;xi--){
+                  var x=m2[cat][xi];
+                  if((x.proyecto||x.archivo)===key||(!key&&x.nombre===d.nombre)){m2[cat].splice(xi,1);removed++;}
+                }
+              });
+            });});});});
+            await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
+            if(perma&&filePath){
+              try{await GH.deleteFile(filePath,"Borrar archivo "+filePath+" (borrado permanente)");}
+              catch(e){alert("La hoja se quitó del catálogo, pero no se pudo borrar el archivo:\n"+(e.message||e));}
+            }
+          });
+          // Update UI + in-memory tree
           var arr=tipo==="piezas"?mq.despieces:tipo==="electrico"?mq.electricos:mq.documentos;
           if(arr){var ii=arr.indexOf(d);if(ii>=0)arr.splice(ii,1);}
           div.remove();
           var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===tipo;});
           if(reg)reg.open();
-          alert('Hoja "'+(d.nombre||"")+'" borrada'+(perma?" para siempre (archivo incluido)":" del catálogo")+".\nGitHub Pages tarda ~1 minuto en reflejarlo.");
         }catch(e){alert("No se pudo borrar: "+(e.message||e));}
       };
       label.appendChild(del);
@@ -1117,9 +1117,19 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     repoPath(p){return "/repos/"+this.cfg.owner+"/"+this.cfg.repo+"/contents/"+p.split("/").map(encodeURIComponent).join("/");},
     async getSha(p){try{const j=await this.req(this.repoPath(p)+"?ref="+encodeURIComponent(this.cfg.branch)+"&_="+Date.now());return j.sha||null;}catch(e){if(e.status===404)return null;throw e;}},
     async deleteFile(p,msg){
-      const sha=await this.getSha(p);
-      if(!sha)return; // already gone
-      return this.req(this.repoPath(p),{method:"DELETE",body:JSON.stringify({message:msg||("Borrar "+p),sha:sha,branch:this.cfg.branch})});
+      let lastErr=null;
+      for(let attempt=0;attempt<5;attempt++){
+        try{
+          const sha=await this.getSha(p);
+          if(!sha)return; // already gone
+          return await this.req(this.repoPath(p),{method:"DELETE",body:JSON.stringify({message:msg||("Borrar "+p),sha:sha,branch:this.cfg.branch})});
+        }catch(e){
+          lastErr=e;
+          if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,600));continue;}
+          throw e;
+        }
+      }
+      throw lastErr;
     },
     async getFileText(p){
       // Read the latest file content directly from the API (never cached, always current SHA)
@@ -1149,6 +1159,13 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       throw lastErr;}
   };
   GH.load();
+
+  // Serialize all GitHub write operations so consecutive deletes/saves never collide
+  var ghQueue=Promise.resolve();
+  function ghSerial(fn){
+    ghQueue=ghQueue.then(function(){return fn();},function(){return fn();});
+    return ghQueue;
+  }
 
   function ghModal(){
     const back=document.createElement("div");
