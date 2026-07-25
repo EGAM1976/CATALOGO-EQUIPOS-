@@ -144,11 +144,6 @@
            "nombre": "Falsa Botella",
            "tipo": "2D",
            "proyecto": "proyectos/falsa_botella.json"
-          },
-          {
-           "nombre": "FALASA BOTELLA2",
-           "tipo": "2D",
-           "proyecto": "proyectos/falasa_botella2.json"
           }
          ]
         }
