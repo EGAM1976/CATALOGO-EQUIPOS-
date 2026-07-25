@@ -763,12 +763,15 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         vMarkers=(curProject.markers||[]).map(function(m){
           var o={id:String(m.id),x:+m.x,y:+m.y,noBalloon:!!m.noBalloon};
           PF.forEach(function(k){o[k]=m[k]||"";});
+          // carry per-row dates
+          o.creado=m.creado||"";o.modificado=m.modificado||"";
           // backward compat with old projects
           if(!o.parte&&m.parte)o.parte=m.parte;
           if(!o.sap1&&m.sap)o.sap1=m.sap;
           if(!o.denomFab&&m.text)o.denomFab=m.text;
           return o;
         });
+        buildRowSnapshot();
         setImage();renderOverlay();renderTable();
         pdfPages=1;pdfPage=1;updatePageUI();
       }else{
@@ -903,8 +906,6 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   }
   function exportSheetCsv(){
     if(!vMarkers.length){alert("No hay repuestos para exportar.");return;}
-    var fCrea=fmtFecha(curProject&&curProject.creado);
-    var fMod=fmtFecha(curProject&&curProject.modificado);
     var csv="\ufeffPos,N_Parte,N_Parte_Suc,SAP,SAP_NAC,Denom_Fabricante,Denom_Comercial,Cant,UM,Ind_Uso,Frec_Mtto,Cant_Mtto,SAP_Equipo,Componente,Fecha_Creacion,Fecha_Modificacion\n";
     vMarkers.forEach(function(m){
       csv+=[
@@ -922,8 +923,8 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         csvCell(m.cantMtto),
         csvCell(m.sapEquipo),
         csvCell(m.componente),
-        csvCell(fCrea),
-        csvCell(fMod)
+        csvCell(fmtFecha(m.creado)),
+        csvCell(fmtFecha(m.modificado))
       ].join(",")+"\n";
     });
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -1272,6 +1273,18 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   }
 
   let editMode=false,curProjectPath=null,dirty=false;
+  var rowSnapshot=null;
+  var PF_DATE=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+  function buildRowSnapshot(){
+    rowSnapshot={};
+    (vMarkers||[]).forEach(function(m){
+      rowSnapshot[m.id]={
+        contenido:PF_DATE.map(function(k){return m[k]||"";}).join("\u0001"),
+        creado:m.creado||"",
+        modificado:m.modificado||""
+      };
+    });
+  }
 
   function showEditButtons(on){
     const ids=["vEdit","vGhCfg"];
@@ -1400,18 +1413,32 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     var btn=$("#vSaveGH");btn.disabled=true;btn.textContent="Guardando…";
     try{
       var PF=["pos","cantPos","um","indUso","parte","parteSuc","sap1","sap2","denomFab","denomCom","freqMtto","cantMtto","sapEquipo","componente"];
+      var ahora=new Date().toISOString();
       var prj=Object.assign({},curProject);
       prj.markers=vMarkers.map(function(m){
         var o={id:m.id,x:+(m.x||0).toFixed(4),y:+(m.y||0).toFixed(4)};
         if(m.noBalloon)o.noBalloon=true;
         PF.forEach(function(k){o[k]=m[k]||"";});
+        // Per-row dates: compare against the snapshot taken when the sheet loaded
+        var snap=(rowSnapshot||{})[m.id];
+        var contenidoActual=PF.map(function(k){return m[k]||"";}).join("\u0001");
+        if(!snap){
+          // Row is new in this session
+          o.creado=m.creado||ahora;
+          o.modificado=ahora;
+        }else{
+          o.creado=m.creado||snap.creado||"";
+          // If any field changed vs the snapshot, update modification date
+          o.modificado=(contenidoActual!==snap.contenido)?ahora:(m.modificado||snap.modificado||"");
+        }
+        // keep dates in memory too
+        m.creado=o.creado;m.modificado=o.modificado;
         return o;
       });
-      if(!prj.creado)prj.creado=new Date().toISOString();
-      prj.modificado=new Date().toISOString();
-      curProject.creado=prj.creado;curProject.modificado=prj.modificado;
       await GH.putFile(curProjectPath,JSON.stringify(prj),"Editar "+curProjectPath+" (desde el catálogo)");
       dirty=false;
+      curProject.markers=prj.markers;
+      buildRowSnapshot(); // refresh snapshot so next edit compares against saved state
       btn.textContent="☁ Guardar";btn.disabled=false;
       alert("Guardado. GitHub Pages tarda ~1 minuto en publicarlo.");
     }catch(err){
@@ -1497,8 +1524,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     }
     var slug=nombre.replace(/[^A-Za-z0-9._-]/g,"_").toLowerCase();
     var path="proyectos/"+slug+".json";
-    var ahora=new Date().toISOString();
-    var prj={type:"2d",name:nombre,image:"",imgW:1200,imgH:800,markers:mk,creado:ahora,modificado:ahora};
+    var prj={type:"2d",name:nombre,image:"",imgW:1200,imgH:800,markers:mk};
     try{
       var existed=await GH.getSha(path);
       if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
@@ -1524,6 +1550,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       // Load the new blank sheet immediately in edit mode — no refresh, no click needed
       curProject=prj;curProjectPath=path;selDespiece={nombre:nombre,proyecto:path};
       vMarkers=prj.markers.map(function(m){return Object.assign({},m);});
+      rowSnapshot={}; // brand new sheet — every row is new
       vSel=null;
       // Switch to piezas tab FIRST so the viewer is visible
       document.querySelectorAll(".tab")[0].click();
@@ -1688,8 +1715,6 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         var r=await fetch(j.path,{cache:"no-cache"});
         if(!r.ok)continue;
         var prj=await r.json();
-        var fCrea=fmtFecha(prj.creado);
-        var fMod=fmtFecha(prj.modificado);
         (prj.markers||prj.parts||[]).forEach(function(m){
           var row=[j.planta,j.zona,j.linea,j.maquina,j.sistema,j.hoja,m.id||""];
           PF.forEach(function(k){
@@ -1698,7 +1723,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
             if(k==="denomFab"||k==="denomCom")v=String(v).slice(0,40);
             row.push(v);
           });
-          row.push(fCrea);row.push(fMod);
+          row.push(fmtFecha(m.creado));row.push(fmtFecha(m.modificado));
           rows.push(row);
         });
       }catch(e){}
