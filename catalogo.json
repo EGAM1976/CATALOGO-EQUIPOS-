@@ -28,6 +28,11 @@
              "nombre": "Valvula de llenado",
              "tipo": "2D",
              "proyecto": "proyectos/valvula_de_llenado.json"
+            },
+            {
+             "nombre": "Pinzas",
+             "tipo": "2D",
+             "proyecto": "proyectos/pinzas.json"
             }
            ],
            "electricos": [],
