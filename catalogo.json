@@ -18,7 +18,23 @@
          "id": "llenadora",
          "nombre": "Llenadora",
          "marca": "KHS",
-         "proyecto": "proyectos/pucusana_l2_llenadora.json"
+         "proyecto": "proyectos/pucusana_l2_llenadora.json",
+         "sistemas": [
+          {
+           "id": "sistema-de-llenado",
+           "nombre": "Sistema de llenado",
+           "despieces": [],
+           "electricos": [],
+           "documentos": []
+          },
+          {
+           "id": "sistema-de-transmision",
+           "nombre": "Sistema De Transmision",
+           "despieces": [],
+           "electricos": [],
+           "documentos": []
+          }
+         ]
         },
         {
          "id": "inspector-ov2",
