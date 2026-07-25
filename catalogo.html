@@ -372,29 +372,30 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         return (pl.zonas||[]).map(zo=>makeNode(zo,"▸","zona",function(){
           return (zo.lineas||[]).map(li=>makeNode(li,"▸","línea",function(){
             return (li.maquinas||[]).map(mq=>makeNode(mq,"▸","máquina",function(){
-              curCtx={pl:pl,zo:zo,li:li,mq:mq};
-              const cats=[];
-              // 1) Catálogo de piezas (despieces)
-              const des=(mq.despieces||[]).slice();
-              if(mq.proyecto&&!des.length)des.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
-              cats.push(makeCategoryNode("📋 Catálogo de piezas",des.length,function(){
-                var dd=(mq.despieces||[]).slice();
-                if(mq.proyecto&&!dd.length)dd.push({nombre:"Despiece principal",tipo:"",proyecto:mq.proyecto});
-                return dd.length?dd.map(d=>makeItemNode(d,mq,"piezas")):[makeEmptyNode("Sin despieces")];
-              },mq,"piezas"));
-              // 2) Esquema eléctrico
-              const elec=mq.electricos||[];
-              cats.push(makeCategoryNode("⚡ Esquema eléctrico",elec.length,function(){
-                var ee=mq.electricos||[];
-                return ee.length?ee.map(d=>makeItemNode(d,mq,"electrico")):[makeEmptyNode("Sin esquemas")];
-              },mq,"electrico"));
-              // 3) Documentación
-              const docs=mq.documentos||[];
-              cats.push(makeCategoryNode("📖 Documentación",docs.length,function(){
-                var oo=mq.documentos||[];
-                return oo.length?oo.map(d=>makeItemNode(d,mq,"doc")):[makeEmptyNode("Sin documentos")];
-              },mq,"doc"));
-              return cats;
+              // Machine now contains SYSTEMS, each system has the 3 categories
+              return (mq.sistemas||[]).map(sis=>makeNode(sis,"▸","sistema",function(){
+                curCtx={pl:pl,zo:zo,li:li,mq:mq,sis:sis};
+                const cats=[];
+                // 1) Catálogo de piezas (despieces) — now under the SYSTEM
+                const des=(sis.despieces||[]).slice();
+                cats.push(makeCategoryNode("📋 Catálogo de piezas",des.length,function(){
+                  var dd=(sis.despieces||[]).slice();
+                  return dd.length?dd.map(d=>makeItemNode(d,sis,"piezas")):[makeEmptyNode("Sin despieces")];
+                },sis,"piezas"));
+                // 2) Esquema eléctrico
+                const elec=sis.electricos||[];
+                cats.push(makeCategoryNode("⚡ Esquema eléctrico",elec.length,function(){
+                  var ee=sis.electricos||[];
+                  return ee.length?ee.map(d=>makeItemNode(d,sis,"electrico")):[makeEmptyNode("Sin esquemas")];
+                },sis,"electrico"));
+                // 3) Documentación
+                const docs=sis.documentos||[];
+                cats.push(makeCategoryNode("📖 Documentación",docs.length,function(){
+                  var oo=sis.documentos||[];
+                  return oo.length?oo.map(d=>makeItemNode(d,sis,"doc")):[makeEmptyNode("Sin documentos")];
+                },sis,"doc"));
+                return cats;
+              }));
             }));
           }));
         }));
@@ -405,16 +406,16 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
   function expandToMachine(ctx){
     if(!ctx||!ctx.mq)return;
     // Match by NAME (not object reference) because buildTree creates new objects
-    var levels=[["planta",ctx.pl],["zona",ctx.zo],["línea",ctx.li],["máquina",ctx.mq]];
-    // Expand each level synchronously — expanding a node creates its children (and registers them) immediately
+    var levels=[["planta",ctx.pl],["zona",ctx.zo],["línea",ctx.li],["máquina",ctx.mq],["sistema",ctx.sis]];
     levels.forEach(function(pair){
       var kind=pair[0],obj=pair[1];
       if(!obj)return;
       var reg=nodeRegistry.find(function(r){return r.kind===kind&&r.item.nombre===obj.nombre;});
       if(reg)reg.expand();
     });
-    // Now the machine's category nodes exist — open the Catálogo de piezas category
-    var cat=catNodeRegistry.find(function(r){return r.mq&&r.mq.nombre===ctx.mq.nombre&&r.kind==="piezas";});
+    // Open the Catálogo de piezas category of the current system
+    var sisName=ctx.sis&&ctx.sis.nombre;
+    var cat=catNodeRegistry.find(function(r){return r.mq&&sisName&&r.mq.nombre===sisName&&r.kind==="piezas";});
     if(cat)cat.open();
   }
   function makeNode(item,icon,kind,childrenFn){
@@ -565,15 +566,15 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
             DATA=JSON.parse(gf.text);
             var key=d.proyecto||d.archivo;
             var removed=0;
-            (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
+            (DATA.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){(m2.sistemas||[]).forEach(function(sis){
               ["despieces","electricos","documentos"].forEach(function(cat){
-                if(!m2[cat])return;
-                for(var xi=m2[cat].length-1;xi>=0;xi--){
-                  var x=m2[cat][xi];
-                  if((x.proyecto||x.archivo)===key||(!key&&x.nombre===d.nombre)){m2[cat].splice(xi,1);removed++;}
+                if(!sis[cat])return;
+                for(var xi=sis[cat].length-1;xi>=0;xi--){
+                  var x=sis[cat][xi];
+                  if((x.proyecto||x.archivo)===key||(!key&&x.nombre===d.nombre)){sis[cat].splice(xi,1);removed++;}
                 }
               });
-            });});});});
+            });});});});});
             await GH.putFile("catalogo.json",JSON.stringify(DATA,null,1),"Borrar hoja "+(d.nombre||""));
             if(perma&&filePath){
               try{await GH.deleteFile(filePath,"Borrar archivo "+filePath+" (borrado permanente)");}
@@ -991,18 +992,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       (pl.zonas||[]).forEach(function(zo){
         (zo.lineas||[]).forEach(function(li){
           (li.maquinas||[]).forEach(function(mq){
-            var path=pl.nombre+" › "+zo.nombre+" › "+li.nombre+" › "+mq.nombre;
-            var desps=mq.despieces||[];
-            if(mq.proyecto&&!desps.length)desps=[{nombre:"Despiece",proyecto:mq.proyecto}];
-            desps.forEach(function(d){
-              allParts.push({nombre:d.nombre||"Despiece",path:path,proyecto:d.proyecto,mq:mq,desp:d,tipo:d.tipo||""});
-            });
-            // Also add machine-level docs and schematics
-            if(mq.electricos)(mq.electricos).forEach(function(e){
-              allParts.push({nombre:e.nombre||"Esquema eléctrico",path:path,proyecto:e.archivo,mq:mq,tipo:"electrico"});
-            });
-            if(mq.documentos)(mq.documentos).forEach(function(dc){
-              allParts.push({nombre:dc.nombre||"Documento",path:path,proyecto:dc.archivo,mq:mq,tipo:"doc"});
+            (mq.sistemas||[]).forEach(function(sis){
+              var path=pl.nombre+" › "+zo.nombre+" › "+li.nombre+" › "+mq.nombre+" › "+sis.nombre;
+              (sis.despieces||[]).forEach(function(d){
+                allParts.push({nombre:d.nombre||"Despiece",path:path,proyecto:d.proyecto,mq:sis,desp:d,tipo:d.tipo||""});
+              });
+              (sis.electricos||[]).forEach(function(e){
+                allParts.push({nombre:e.nombre||"Esquema eléctrico",path:path,proyecto:e.archivo,mq:sis,tipo:"electrico"});
+              });
+              (sis.documentos||[]).forEach(function(dc){
+                allParts.push({nombre:dc.nombre||"Documento",path:path,proyecto:dc.archivo,mq:sis,tipo:"doc"});
+              });
             });
           });
         });
@@ -1326,11 +1326,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           await GH.putFileRaw(path,b64,"Subir "+path);
           // Update catalog.json (fresh)
           var gf=await GH.getFileText("catalogo.json");var cat=JSON.parse(gf.text);
-          // find the machine by name-path
+          // find the SYSTEM by name
           var target=null;
-          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){
-            if(m2.nombre===mq.nombre)target=m2;
-          });});});});
+          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(m2){(m2.sistemas||[]).forEach(function(sis){
+            if(sis.nombre===mq.nombre)target=sis;
+          });});});});});
           if(target){
             target[arrKey]=target[arrKey]||[];
             target[arrKey].push(kind==="elec"?{nombre:nombre,archivo:path}:{nombre:nombre,archivo:path,categoria:"manual"});
@@ -1489,16 +1489,15 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var existed=await GH.getSha(path);
       if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
       await GH.putFile(path,JSON.stringify(prj),"Crear hoja "+nombre);
-      // Link to a machine — use current tree context if available
+      // Link to a SYSTEM — use current tree context if available
       var cat;try{var _gf=await GH.getFileText("catalogo.json");cat=JSON.parse(_gf.text);}catch(e){cat=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();}
       var target=null;
-      if(curCtx&&curCtx.mq){
-        // locate the same machine inside the freshly-fetched catalog
-        var ruta=(curCtx.pl?curCtx.pl.nombre+" › ":"")+(curCtx.zo?curCtx.zo.nombre+" › ":"")+(curCtx.li?curCtx.li.nombre+" › ":"")+curCtx.mq.nombre;
-        if(confirm("¿Enlazar la hoja a:\n\n"+ruta+"\n\n(Cancelar para elegir otra máquina)")){
-          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){
-            if(mq.nombre===curCtx.mq.nombre&&(!curCtx.li||li.nombre===curCtx.li.nombre)&&(!curCtx.zo||zo.nombre===curCtx.zo.nombre)&&(!curCtx.pl||pl.nombre===curCtx.pl.nombre))target=mq;
-          });});});});
+      if(curCtx&&curCtx.sis){
+        var ruta=(curCtx.pl?curCtx.pl.nombre+" › ":"")+(curCtx.zo?curCtx.zo.nombre+" › ":"")+(curCtx.li?curCtx.li.nombre+" › ":"")+(curCtx.mq?curCtx.mq.nombre+" › ":"")+curCtx.sis.nombre;
+        if(confirm("¿Enlazar la hoja a:\n\n"+ruta+"\n\n(Cancelar para elegir otro sistema)")){
+          (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){(mq.sistemas||[]).forEach(function(sis){
+            if(sis.nombre===curCtx.sis.nombre&&(!curCtx.mq||mq.nombre===curCtx.mq.nombre)&&(!curCtx.li||li.nombre===curCtx.li.nombre)&&(!curCtx.zo||zo.nombre===curCtx.zo.nombre)&&(!curCtx.pl||pl.nombre===curCtx.pl.nombre))target=sis;
+          });});});});});
         }
       }
       if(!target)target=await pickMachine(cat);
@@ -1532,23 +1531,21 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       $("#vSaveGH").style.display="";
       $("#vAddRow").style.display="";
       renderTable();
-      // Add the sheet to the machine object
-      if(curCtx&&curCtx.mq){
-        curCtx.mq.despieces=curCtx.mq.despieces||[];
-        if(!curCtx.mq.despieces.some(function(d){return d.proyecto===path;})){
-          curCtx.mq.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
+      // Add the sheet to the SYSTEM object
+      if(curCtx&&curCtx.sis){
+        curCtx.sis.despieces=curCtx.sis.despieces||[];
+        if(!curCtx.sis.despieces.some(function(d){return d.proyecto===path;})){
+          curCtx.sis.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
         }
       }
-      // Insert the new sheet node directly into the currently-open "Catálogo de piezas"
-      // category in the DOM — WITHOUT rebuilding the tree (which collapses it).
+      // Insert the new sheet node directly into the open "Catálogo de piezas" category
       var inserted=false;
-      var reg=catNodeRegistry.find(function(r){return r.mq&&curCtx&&r.mq===curCtx.mq&&r.kind==="piezas";});
+      var reg=catNodeRegistry.find(function(r){return r.mq&&curCtx&&r.mq===curCtx.sis&&r.kind==="piezas";});
       if(reg&&reg.addItem){
         reg.addItem({nombre:nombre,tipo:"2D",proyecto:path});
         inserted=true;
       }
       if(!inserted){
-        // Fallback: rebuild + expand (older path)
         buildTree();
         setTimeout(function(){expandToMachine(curCtx);},80);
       }
@@ -1566,23 +1563,25 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var sel='<select id="pmP" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px"><option value="">— planta —</option></select>'
         +'<select id="pmZ" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px"><option value="">— zona —</option></select>'
         +'<select id="pmL" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px"><option value="">— línea —</option></select>'
-        +'<select id="pmM" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px"><option value="">— máquina —</option></select>';
+        +'<select id="pmM" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px"><option value="">— máquina —</option></select>'
+        +'<select id="pmS" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px"><option value="">— sistema —</option></select>';
       back.innerHTML='<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:22px">'
-        +'<h3 style="margin:0 0 12px;font-size:15px;color:var(--accent)">¿A qué máquina pertenece?</h3>'+sel
+        +'<h3 style="margin:0 0 12px;font-size:15px;color:var(--accent)">¿A qué sistema pertenece?</h3>'+sel
         +'<div style="display:flex;gap:8px"><button class="abtn" id="pmOK" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent)">Enlazar</button>'
         +'<button class="abtn" id="pmSkip">Omitir</button></div></div>';
       document.body.appendChild(back);
       var q=function(s){return back.querySelector(s);};
       function fill(el,arr,ph){el.innerHTML='<option value="">'+ph+'</option>';(arr||[]).forEach(function(it,i){el.innerHTML+='<option value="'+i+'">'+esc(it.nombre)+'</option>';});}
       fill(q("#pmP"),cat.plantas,"— planta —");
-      q("#pmP").onchange=function(){fill(q("#pmZ"),(cat.plantas[+q("#pmP").value]||{}).zonas,"— zona —");fill(q("#pmL"),[],"— línea —");fill(q("#pmM"),[],"— máquina —");};
-      q("#pmZ").onchange=function(){fill(q("#pmL"),((cat.plantas[+q("#pmP").value]||{}).zonas[+q("#pmZ").value]||{}).lineas,"— línea —");fill(q("#pmM"),[],"— máquina —");};
-      q("#pmL").onchange=function(){fill(q("#pmM"),(((cat.plantas[+q("#pmP").value]||{}).zonas[+q("#pmZ").value]||{}).lineas[+q("#pmL").value]||{}).maquinas,"— máquina —");};
+      q("#pmP").onchange=function(){fill(q("#pmZ"),(cat.plantas[+q("#pmP").value]||{}).zonas,"— zona —");fill(q("#pmL"),[],"— línea —");fill(q("#pmM"),[],"— máquina —");fill(q("#pmS"),[],"— sistema —");};
+      q("#pmZ").onchange=function(){fill(q("#pmL"),((cat.plantas[+q("#pmP").value]||{}).zonas[+q("#pmZ").value]||{}).lineas,"— línea —");fill(q("#pmM"),[],"— máquina —");fill(q("#pmS"),[],"— sistema —");};
+      q("#pmL").onchange=function(){fill(q("#pmM"),(((cat.plantas[+q("#pmP").value]||{}).zonas[+q("#pmZ").value]||{}).lineas[+q("#pmL").value]||{}).maquinas,"— máquina —");fill(q("#pmS"),[],"— sistema —");};
+      q("#pmM").onchange=function(){fill(q("#pmS"),((((cat.plantas[+q("#pmP").value]||{}).zonas[+q("#pmZ").value]||{}).lineas[+q("#pmL").value]||{}).maquinas[+q("#pmM").value]||{}).sistemas,"— sistema —");};
       q("#pmSkip").onclick=function(){back.remove();resolve(null);};
       q("#pmOK").onclick=function(){
-        if(q("#pmM").value===""){alert("Elige una máquina o toca Omitir.");return;}
-        var m=cat.plantas[+q("#pmP").value].zonas[+q("#pmZ").value].lineas[+q("#pmL").value].maquinas[+q("#pmM").value];
-        back.remove();resolve(m);
+        if(q("#pmS").value===""){alert("Elige un sistema o toca Omitir.");return;}
+        var s=cat.plantas[+q("#pmP").value].zonas[+q("#pmZ").value].lineas[+q("#pmL").value].maquinas[+q("#pmM").value].sistemas[+q("#pmS").value];
+        back.remove();resolve(s);
       };
     });
   }
@@ -1598,9 +1597,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       await GH.putFile(curProjectPath,JSON.stringify(curProject),"Renombrar hoja");
       var cat;try{var _gf=await GH.getFileText("catalogo.json");cat=JSON.parse(_gf.text);}catch(e){cat=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();}
       var found=false;
-      (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){
-        (mq.despieces||[]).forEach(function(d){if(d.proyecto===curProjectPath){d.nombre=nuevo;found=true;}});
-      });});});});
+      (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){(mq.sistemas||[]).forEach(function(sis){
+        (sis.despieces||[]).forEach(function(d){if(d.proyecto===curProjectPath){d.nombre=nuevo;found=true;}});
+      });});});});});
       if(found)await GH.putFile("catalogo.json",JSON.stringify(cat,null,1),"Renombrar hoja en catálogo");
       $("#viewTitle").textContent=nuevo;
       alert("Renombrado. Espera ~1 min y recarga.");
@@ -1656,10 +1655,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       (pl.zonas||[]).forEach(function(zo){
         (zo.lineas||[]).forEach(function(li){
           (li.maquinas||[]).forEach(function(mq){
-            var des=(mq.despieces||[]).slice();
-            if(mq.proyecto&&!des.length)des.push({nombre:"Despiece",proyecto:mq.proyecto});
-            des.forEach(function(d){
-              if(d.proyecto)jobs.push({planta:pl.nombre,zona:zo.nombre,linea:li.nombre,maquina:mq.nombre,hoja:d.nombre||"",path:d.proyecto});
+            (mq.sistemas||[]).forEach(function(sis){
+              (sis.despieces||[]).slice().forEach(function(d){
+                if(d.proyecto)jobs.push({planta:pl.nombre,zona:zo.nombre,linea:li.nombre,maquina:mq.nombre,sistema:sis.nombre,hoja:d.nombre||"",path:d.proyecto});
+              });
             });
           });
         });
@@ -1674,7 +1673,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         if(!r.ok)continue;
         var prj=await r.json();
         (prj.markers||prj.parts||[]).forEach(function(m){
-          var row=[j.planta,j.zona,j.linea,j.maquina,j.hoja,m.id||""];
+          var row=[j.planta,j.zona,j.linea,j.maquina,j.sistema,j.hoja,m.id||""];
           PF.forEach(function(k){
             var v=m[k]||"";
             if(k==="sap1"||k==="sap2")v=String(v).slice(0,6);
@@ -1687,7 +1686,7 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     }
     btn.textContent=oldTxt;btn.disabled=false;
     if(!rows.length){alert("No se encontraron datos para exportar.");return;}
-    var head=["Planta","Zona","Linea","Equipo","Hoja","ID","Pos","N_Parte","N_Parte_Suc","SAP","SAP_NAC","Denom_Fabricante","Denom_Comercial","Cant","UM","Ind_Uso","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente"];
+    var head=["Planta","Zona","Linea","Equipo","Sistema","Hoja","ID","Pos","N_Parte","N_Parte_Suc","SAP","SAP_NAC","Denom_Fabricante","Denom_Comercial","Cant","UM","Ind_Uso","Frec_Mtto","Cant_Mtto","SAP_Equipo","Componente"];
     var csv="\ufeff"+head.join(",")+"\n";
     rows.forEach(function(r){csv+=r.map(csvCell).join(",")+"\n";});
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
