@@ -179,11 +179,6 @@
            "nombre": "FALSA 6777",
            "tipo": "2D",
            "proyecto": "proyectos/falsa_6777.json"
-          },
-          {
-           "nombre": "LATENCIA 1",
-           "tipo": "2D",
-           "proyecto": "proyectos/latencia_1.json"
           }
          ]
         }
