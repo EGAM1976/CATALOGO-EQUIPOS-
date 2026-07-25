@@ -594,13 +594,13 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       curCtx=curCtx||{};curCtx.mq=mq;
       if(window.__setDocCtx&&(tipo==="electrico"||tipo==="doc"))window.__setDocCtx(tipo==="electrico"?"electrico":"doc",mq);
       if(tipo==="piezas"){
-        document.querySelectorAll(".tab")[0].click();
+        clickTabNoSync(0);
         loadDespiece(d,mq);
       }else if(tipo==="electrico"){
-        document.querySelectorAll(".tab")[1].click();
+        clickTabNoSync(1);
         loadDocument(d,mq,"elec");
       }else{
-        document.querySelectorAll(".tab")[2].click();
+        clickTabNoSync(2);
         loadDocument(d,mq,"doc");
       }
     };
@@ -953,8 +953,19 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       var target=tab.getAttribute("data-tab");
       var map={piezas:"tabPiezas",electrico:"tabElectrico",docs:"tabDocs",busqueda:"tabBusqueda"};
       if(map[target])$("#"+map[target]).classList.add("active");
+      // Sync the tree: open the matching category of the current machine
+      if(!_syncingTab){
+        var mq=(curCtx&&curCtx.mq)||curElecMq||curDocMq;
+        var kind=target==="piezas"?"piezas":target==="electrico"?"electrico":target==="docs"?"doc":null;
+        if(mq&&kind){
+          var reg=catNodeRegistry.find(function(r){return r.mq===mq&&r.kind===kind;});
+          if(reg&&reg.open)reg.open();
+        }
+      }
     };
   });
+  var _syncingTab=false;
+  function clickTabNoSync(idx){_syncingTab=true;document.querySelectorAll(".tab")[idx].click();_syncingTab=false;}
 
   // ---- Full search (Búsqueda tab) ----
   var allParts=[];
