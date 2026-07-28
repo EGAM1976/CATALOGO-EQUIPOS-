@@ -438,7 +438,13 @@
           {
            "id": "sistema-de-llenado",
            "nombre": "Sistema de llenado",
-           "despieces": [],
+           "despieces": [
+            {
+             "nombre": "Valvula de llenado",
+             "tipo": "2D",
+             "proyecto": "proyectos/valvula_de_llenado.json"
+            }
+           ],
            "electricos": [],
            "documentos": []
           }
