@@ -25,11 +25,6 @@
            "nombre": "Sistema de llenado",
            "despieces": [
             {
-             "nombre": "PUC_L2_Valvula de llenado",
-             "tipo": "2D",
-             "proyecto": "proyectos/valvula_de_llenado.json"
-            },
-            {
              "nombre": "Pinzas",
              "tipo": "2D",
              "proyecto": "proyectos/pinzas.json"
@@ -438,13 +433,7 @@
           {
            "id": "sistema-de-llenado",
            "nombre": "Sistema de llenado",
-           "despieces": [
-            {
-             "nombre": "PUC_L1_Valvula de llenado",
-             "tipo": "2D",
-             "proyecto": "proyectos/valvula_de_llenado.json"
-            }
-           ],
+           "despieces": [],
            "electricos": [],
            "documentos": []
           }
