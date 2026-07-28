@@ -43,6 +43,11 @@
              "nombre": "CADENAS",
              "tipo": "2D",
              "proyecto": "proyectos/cadenas.json"
+            },
+            {
+             "nombre": "ROTOPLAS2",
+             "tipo": "2D",
+             "proyecto": "proyectos/rotoplas2.json"
             }
            ],
            "electricos": [],
