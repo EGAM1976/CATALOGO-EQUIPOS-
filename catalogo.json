@@ -426,14 +426,23 @@
      "lineas": [
       {
        "id": "linea-1",
-       "nombre": "Línea SIPA",
+       "nombre": "Línea 1",
        "maquinas": [
         {
          "id": "llenadora",
          "nombre": "Llenadora",
          "marca": "",
          "proyecto": "",
-         "despieces": []
+         "despieces": [],
+         "sistemas": [
+          {
+           "id": "sistema-de-llenado",
+           "nombre": "Sistema de llenado",
+           "despieces": [],
+           "electricos": [],
+           "documentos": []
+          }
+         ]
         }
        ]
       }
