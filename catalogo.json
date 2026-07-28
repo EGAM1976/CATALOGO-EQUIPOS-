@@ -25,7 +25,7 @@
            "nombre": "Sistema de llenado",
            "despieces": [
             {
-             "nombre": "Valvula de llenado",
+             "nombre": "SIPA_Valvula de llenado",
              "tipo": "2D",
              "proyecto": "proyectos/valvula_de_llenado.json"
             },
@@ -440,7 +440,7 @@
            "nombre": "Sistema de llenado",
            "despieces": [
             {
-             "nombre": "Valvula de llenado",
+             "nombre": "SIPA_Valvula de llenado",
              "tipo": "2D",
              "proyecto": "proyectos/valvula_de_llenado.json"
             }
