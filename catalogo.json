@@ -433,7 +433,13 @@
           {
            "id": "sistema-de-llenado",
            "nombre": "Sistema de llenado",
-           "despieces": [],
+           "despieces": [
+            {
+             "nombre": "ZAR_SIPA_Mando obturador",
+             "tipo": "2D",
+             "proyecto": "proyectos/zar_sipa_mando_obturador.json"
+            }
+           ],
            "electricos": [],
            "documentos": []
           }
