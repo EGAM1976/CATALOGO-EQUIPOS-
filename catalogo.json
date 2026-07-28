@@ -426,7 +426,7 @@
      "lineas": [
       {
        "id": "linea-1",
-       "nombre": "Línea 1",
+       "nombre": "Línea SIPA",
        "maquinas": [
         {
          "id": "llenadora",
