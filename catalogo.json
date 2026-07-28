@@ -438,6 +438,11 @@
              "nombre": "ZAR_SIPA_Mando obturador",
              "tipo": "2D",
              "proyecto": "proyectos/zar_sipa_mando_obturador.json"
+            },
+            {
+             "nombre": "Pinzas",
+             "tipo": "2D",
+             "proyecto": "proyectos/pinzas.json"
             }
            ],
            "electricos": [],
