@@ -25,11 +25,6 @@
            "nombre": "Sistema de llenado",
            "despieces": [
             {
-             "nombre": "Pinzas",
-             "tipo": "2D",
-             "proyecto": "proyectos/pinzas.json"
-            },
-            {
              "nombre": "Nueva hoja",
              "tipo": "2D",
              "proyecto": "proyectos/nueva_hoja.json"
@@ -438,11 +433,6 @@
              "nombre": "ZAR_SIPA_Mando obturador",
              "tipo": "2D",
              "proyecto": "proyectos/zar_sipa_mando_obturador.json"
-            },
-            {
-             "nombre": "Pinzas",
-             "tipo": "2D",
-             "proyecto": "proyectos/pinzas.json"
             }
            ],
            "electricos": [],
