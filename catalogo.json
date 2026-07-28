@@ -433,6 +433,11 @@
              "nombre": "ZAR_SIPA_Mando obturador",
              "tipo": "2D",
              "proyecto": "proyectos/zar_sipa_mando_obturador.json"
+            },
+            {
+             "nombre": "ROTOPLAS1",
+             "tipo": "2D",
+             "proyecto": "proyectos/rotoplas1.json"
             }
            ],
            "electricos": [],
