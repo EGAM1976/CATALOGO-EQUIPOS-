@@ -1352,6 +1352,17 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       }
       var safe=f.name.replace(/[^A-Za-z0-9._-]/g,"_");
       var path=folder+"/"+safe;
+      // Si el archivo ya existe en el repositorio, generar un nombre de archivo único
+      try{
+        var yaExisteArchivo=await GH.getSha(path);
+        if(yaExisteArchivo){
+          var ext=(safe.match(/\.[^.]+$/)||[""])[0];
+          var baseName=safe.replace(/\.[^.]+$/,"");
+          var n2=2;
+          while(await GH.getSha(folder+"/"+baseName+"_"+n2+ext)){n2++;}
+          path=folder+"/"+baseName+"_"+n2+ext;
+        }
+      }catch(e){}
       try{
         await ghSerial(async function(){
           // Upload the file (binary)
@@ -1543,12 +1554,26 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       o.pos=String(i);
       mk.push(o);
     }
-    var slug=nombre.replace(/[^A-Za-z0-9._-]/g,"_").toLowerCase();
-    var path="proyectos/"+slug+".json";
+    var slug, path, existed;
+    // Pedir nombre hasta que no choque con un archivo existente
+    while(true){
+      slug=nombre.replace(/[^A-Za-z0-9._-]/g,"_").toLowerCase();
+      path="proyectos/"+slug+".json";
+      existed=await GH.getSha(path);
+      if(!existed)break; // libre, seguimos
+      var otro=prompt('Ya existe un archivo para "'+nombre+'".\nEscribe OTRO nombre para la hoja:',nombre+" (2)");
+      if(otro===null)return; // canceló
+      otro=otro.trim();
+      if(!otro){alert("Escribe un nombre.");continue;}
+      // revisar también duplicado en el sistema
+      if(curCtx&&curCtx.sis&&(curCtx.sis.despieces||[]).some(function(d){return (d.nombre||"").trim().toLowerCase()===otro.toLowerCase();})){
+        alert('Ya existe una hoja llamada "'+otro+'" en este sistema. Prueba otro nombre.');
+        nombre=otro;continue;
+      }
+      nombre=otro;
+    }
     var prj={type:"2d",name:nombre,image:"",imgW:1200,imgH:800,markers:mk};
     try{
-      var existed=await GH.getSha(path);
-      if(existed&&!confirm("Ya existe "+path+". ¿Reemplazar?"))return;
       await GH.putFile(path,JSON.stringify(prj),"Crear hoja "+nombre);
       // Link to a SYSTEM — use current tree context if available
       var cat;try{var _gf=await GH.getFileText("catalogo.json");cat=JSON.parse(_gf.text);}catch(e){cat=await (await fetch("catalogo.json?_="+Date.now(),{cache:"no-cache"})).json();}
