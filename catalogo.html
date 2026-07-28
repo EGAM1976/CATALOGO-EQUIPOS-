@@ -520,10 +520,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
         if(!GH.ready()){alert("Conecta GitHub primero (botón ⚙).");ghModal();return;}
         var nuevo=prompt("Nuevo nombre de la hoja:",d.nombre||"");
         if(nuevo===null)return;nuevo=nuevo.trim();if(!nuevo)return;
-        // No permitir duplicado en la misma categoría del sistema (mq aquí es el sistema)
-        var arrCat=tipo==="piezas"?(mq.despieces||[]):tipo==="electrico"?(mq.electricos||[]):(mq.documentos||[]);
-        if(arrCat.some(function(x){return x!==d&&(x.nombre||"").trim().toLowerCase()===nuevo.toLowerCase();})){
-          alert('Ya existe otro elemento llamado "'+nuevo+'" en esta categoría.\nUsa un nombre diferente.');
+        // No permitir duplicado en TODA la estructura (misma categoría), ignorándose a sí mismo
+        var kindKeyR=tipo==="piezas"?"despieces":tipo==="electrico"?"electricos":"documentos";
+        var dupR=nombreExisteEnEstructura(nuevo,[kindKeyR],DATA,d);
+        if(dupR){
+          alert('Ya existe otro elemento llamado "'+nuevo+'" en:\n'+dupR.planta+" › "+dupR.sistema+"\nUsa un nombre diferente.");
           return;
         }
         try{
@@ -1292,6 +1293,26 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     });
   }
 
+  // Revisa si un nombre ya existe en TODA la estructura (todas las plantas/zonas/líneas/máquinas/sistemas)
+  // kinds: array con las categorías a revisar, p.ej. ["despieces"] o ["electricos"] o ["despieces","electricos","documentos"]
+  // exclude: (opcional) objeto a ignorar (para renombrar sin chocar consigo mismo)
+  function nombreExisteEnEstructura(nombre, kinds, cat, exclude){
+    var target=(nombre||"").trim().toLowerCase();
+    if(!target)return null;
+    cat=cat||DATA;
+    var hallado=null;
+    (cat.plantas||[]).forEach(function(pl){(pl.zonas||[]).forEach(function(zo){(zo.lineas||[]).forEach(function(li){(li.maquinas||[]).forEach(function(mq){(mq.sistemas||[]).forEach(function(sis){
+      kinds.forEach(function(k){
+        (sis[k]||[]).forEach(function(d){
+          if(d!==exclude&&(d.nombre||"").trim().toLowerCase()===target){
+            hallado={planta:pl.nombre,zona:zo.nombre,linea:li.nombre,maquina:mq.nombre,sistema:sis.nombre};
+          }
+        });
+      });
+    });});});});});
+    return hallado; // null si no existe; objeto con la ubicación si existe
+  }
+
   function showEditButtons(on){
     const ids=["vEdit","vGhCfg"];
     ids.forEach(function(id){const el=$("#"+id);if(el)el.style.display=on?"":"none";});
@@ -1344,10 +1365,11 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(!mq)return;
       var nombre=prompt("Nombre del "+(kind==="elec"?"esquema eléctrico":"documento")+":",f.name.replace(/\.[^.]+$/,""));
       if(nombre===null)return;nombre=nombre.trim()||f.name;
-      // No permitir nombre duplicado en la categoría del sistema actual
-      var listaActual=(kind==="elec"?(mq.electricos||[]):(mq.documentos||[]));
-      if(listaActual.some(function(d){return (d.nombre||"").trim().toLowerCase()===nombre.toLowerCase();})){
-        alert('Ya existe un '+(kind==="elec"?"esquema eléctrico":"documento")+' llamado "'+nombre+'" en este sistema.\nUsa un nombre diferente.');
+      // No permitir nombre duplicado en TODA la estructura (esa categoría)
+      var kindKey=kind==="elec"?"electricos":"documentos";
+      var dupDoc=nombreExisteEnEstructura(nombre,[kindKey],DATA);
+      if(dupDoc){
+        alert('Ya existe un '+(kind==="elec"?"esquema eléctrico":"documento")+' llamado "'+nombre+'" en:\n'+dupDoc.planta+" › "+dupDoc.sistema+"\nUsa un nombre diferente.");
         return;
       }
       var safe=f.name.replace(/[^A-Za-z0-9._-]/g,"_");
@@ -1379,9 +1401,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
           });});});});});
           if(target){
             target[arrKey]=target[arrKey]||[];
-            // Verificación final contra el catálogo fresco
-            if(target[arrKey].some(function(d){return (d.nombre||"").trim().toLowerCase()===nombre.toLowerCase();})){
-              throw new Error('Ya existe "'+nombre+'" en este sistema. Usa un nombre diferente.');
+            // Verificación final contra TODA la estructura fresca
+            var dupF=nombreExisteEnEstructura(nombre,[arrKey],cat);
+            if(dupF){
+              throw new Error('Ya existe "'+nombre+'" en '+dupF.planta+" › "+dupF.sistema+". Usa un nombre diferente.");
             }
             target[arrKey].push(kind==="elec"?{nombre:nombre,archivo:path}:{nombre:nombre,archivo:path,categoria:"manual"});
             await GH.putFile("catalogo.json",JSON.stringify(cat,null,1),"Enlazar "+nombre);
@@ -1538,11 +1561,9 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
     var nombre=prompt("Nombre de la hoja nueva:","Nueva hoja");
     if(nombre===null)return;
     nombre=nombre.trim();if(!nombre){alert("Escribe un nombre.");return;}
-    // No permitir nombre duplicado dentro del sistema actual
-    if(curCtx&&curCtx.sis){
-      var yaExiste=(curCtx.sis.despieces||[]).some(function(d){return (d.nombre||"").trim().toLowerCase()===nombre.toLowerCase();});
-      if(yaExiste){alert('Ya existe una hoja llamada "'+nombre+'" en este sistema.\nEscribe un nombre diferente.');return;}
-    }
+    // No permitir nombre duplicado en TODA la estructura (todas las plantas)
+    var dup=nombreExisteEnEstructura(nombre,["despieces"],DATA);
+    if(dup){alert('Ya existe una hoja llamada "'+nombre+'" en:\n'+dup.planta+" › "+dup.sistema+"\n\nEscribe un nombre diferente.");return;}
     var nfil=prompt("¿Cuántas filas en blanco quieres crear?","10");
     if(nfil===null)return;
     var n=Math.max(1,Math.min(500,parseInt(nfil,10)||10));
@@ -1565,9 +1586,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(otro===null)return; // canceló
       otro=otro.trim();
       if(!otro){alert("Escribe un nombre.");continue;}
-      // revisar también duplicado en el sistema
-      if(curCtx&&curCtx.sis&&(curCtx.sis.despieces||[]).some(function(d){return (d.nombre||"").trim().toLowerCase()===otro.toLowerCase();})){
-        alert('Ya existe una hoja llamada "'+otro+'" en este sistema. Prueba otro nombre.');
+      // revisar también duplicado en TODA la estructura
+      var dup2=nombreExisteEnEstructura(otro,["despieces"],DATA);
+      if(dup2){
+        alert('Ya existe una hoja llamada "'+otro+'" en:\n'+dup2.planta+" › "+dup2.sistema+"\nPrueba otro nombre.");
         nombre=otro;continue;
       }
       nombre=otro;
@@ -1589,9 +1611,10 @@ table.ptable{width:100%;border-collapse:collapse;font-size:12px}
       if(!target)target=await pickMachine(cat);
       if(target){
         target.despieces=target.despieces||[];
-        // Verificación final contra el catálogo fresco
-        if((target.despieces||[]).some(function(d){return (d.nombre||"").trim().toLowerCase()===nombre.toLowerCase();})){
-          alert('Ya existe una hoja llamada "'+nombre+'" en ese sistema.\nNo se creó la hoja. Usa un nombre diferente.');
+        // Verificación final contra TODA la estructura del catálogo fresco
+        var dupFinal=nombreExisteEnEstructura(nombre,["despieces"],cat);
+        if(dupFinal){
+          alert('Ya existe una hoja llamada "'+nombre+'" en:\n'+dupFinal.planta+" › "+dupFinal.sistema+"\nNo se creó la hoja. Usa un nombre diferente.");
           return;
         }
         target.despieces.push({nombre:nombre,tipo:"2D",proyecto:path});
