@@ -134,6 +134,20 @@
          "nombre": "Transporte de Botellas",
          "marca": "",
          "despieces": []
+        },
+        {
+         "id": "codificador",
+         "nombre": "Codificador",
+         "marca": "Dominos",
+         "sistemas": [
+          {
+           "id": "general",
+           "nombre": "General",
+           "despieces": [],
+           "electricos": [],
+           "documentos": []
+          }
+         ]
         }
        ]
       },
