@@ -138,7 +138,7 @@
         {
          "id": "codificador",
          "nombre": "Codificador",
-         "marca": "Dominos",
+         "marca": "",
          "sistemas": [
           {
            "id": "general",
