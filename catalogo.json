@@ -143,7 +143,13 @@
           {
            "id": "general",
            "nombre": "General",
-           "despieces": [],
+           "despieces": [
+            {
+             "nombre": "Panel",
+             "tipo": "2D",
+             "proyecto": "proyectos/panel.json"
+            }
+           ],
            "electricos": [],
            "documentos": []
           }
